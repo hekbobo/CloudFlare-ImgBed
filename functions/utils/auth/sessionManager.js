@@ -24,7 +24,7 @@ const COOKIE_NAMES = {
  * @param {string} [username] - 用户名（管理员登录时使用）
  * @returns {Promise<{token: string, cookie: string}>}
  */
-export async function createSession(env, authType, username = '') {
+export async function createSession(env, authType, username = '', profile = {}) {
     // 读取安全策略配置
     const securityConfig = await fetchSecurityConfig(env);
     const accessConfig = securityConfig.access || {};
@@ -38,6 +38,8 @@ export async function createSession(env, authType, username = '') {
     const db = getDatabase(env);
     const token = generateSessionToken();
     const sessionData = {
+        // 第三方登录附带的资料（昵称、头像等），不覆盖身份字段
+        ...profile,
         authType,
         username,
         createdAt: Date.now(),

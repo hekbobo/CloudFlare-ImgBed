@@ -23,6 +23,7 @@ import * as apiManageBatchIndexFinalize from '../../functions/api/manage/batch/i
 import * as apiManageBatchRestoreChunk from '../../functions/api/manage/batch/restore/chunk.js';
 import * as apiAuthGithubCallback from '../../functions/api/auth/github/callback.js';
 import * as apiAuthGithubLogin from '../../functions/api/auth/github/login.js';
+import * as apiAuthGithubMe from '../../functions/api/auth/github/me.js';
 import * as apiManageAiTags from '../../functions/api/manage/ai/tags.js';
 import * as apiManageAiTest from '../../functions/api/manage/ai/test.js';
 import * as apiManageBatchList from '../../functions/api/manage/batch/list.js';
@@ -86,6 +87,7 @@ const routes = [
     { path: '/api/manage/batch/restore/chunk', module: apiManageBatchRestoreChunk, middlewares: [mw_root, mw_api, mw_api_manage] },
     { path: '/api/auth/github/callback', module: apiAuthGithubCallback, middlewares: [mw_root, mw_api] },
     { path: '/api/auth/github/login', module: apiAuthGithubLogin, middlewares: [mw_root, mw_api] },
+    { path: '/api/auth/github/me', module: apiAuthGithubMe, middlewares: [mw_root, mw_api] },
     { path: '/api/manage/ai/tags', module: apiManageAiTags, middlewares: [mw_root, mw_api, mw_api_manage] },
     { path: '/api/manage/ai/test', module: apiManageAiTest, middlewares: [mw_root, mw_api, mw_api_manage] },
     { path: '/api/manage/batch/list', module: apiManageBatchList, middlewares: [mw_root, mw_api, mw_api_manage] },

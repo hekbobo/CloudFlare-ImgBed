@@ -440,25 +440,29 @@ export async function buildUniqueFileId(context, fileName, fileType = 'applicati
     // 处理文件名，移除特殊字符
     fileName = sanitizeFileName(fileName);
 
+    // 用户目录前缀：文件 ID 形如 `<uid>/xxx.jpg`，R2 里天然按用户分目录
+    const ownerPrefix = context?.userScope?.uid ? `${context.userScope.uid}/` : '';
+    const withOwner = (path) => (ownerPrefix ? ownerPrefix + path : path);
+
     const unique_index = Date.now() + Math.floor(Math.random() * 10000);
     let baseId = '';
 
     // 根据命名方式构建基础ID
     if (nameType === 'index') {
-        baseId = normalizedFolder ? `${normalizedFolder}/${unique_index}.${fileExt}` : `${unique_index}.${fileExt}`;
+        baseId = withOwner(normalizedFolder ? `${normalizedFolder}/${unique_index}.${fileExt}` : `${unique_index}.${fileExt}`);
     } else if (nameType === 'origin') {
-        baseId = normalizedFolder ? `${normalizedFolder}/${fileName}` : fileName;
+        baseId = withOwner(normalizedFolder ? `${normalizedFolder}/${fileName}` : fileName);
     } else if (nameType === 'short') {
         // 对于短链接，直接在循环中生成不重复的ID
         while (true) {
             const shortId = generateShortId(8);
-            const testFullId = normalizedFolder ? `${normalizedFolder}/${shortId}.${fileExt}` : `${shortId}.${fileExt}`;
+            const testFullId = withOwner(normalizedFolder ? `${normalizedFolder}/${shortId}.${fileExt}` : `${shortId}.${fileExt}`);
             if (await db.get(testFullId) === null) {
                 return testFullId;
             }
         }
     } else {
-        baseId = normalizedFolder ? `${normalizedFolder}/${unique_index}_${fileName}` : `${unique_index}_${fileName}`;
+        baseId = withOwner(normalizedFolder ? `${normalizedFolder}/${unique_index}_${fileName}` : `${unique_index}_${fileName}`);
     }
 
     // 检查基础ID是否已存在
@@ -473,22 +477,22 @@ export async function buildUniqueFileId(context, fileName, fileType = 'applicati
 
         if (nameType === 'index') {
             const baseName = unique_index;
-            duplicateId = normalizedFolder ?
+            duplicateId = withOwner(normalizedFolder ?
                 `${normalizedFolder}/${baseName}(${counter}).${fileExt}` :
-                `${baseName}(${counter}).${fileExt}`;
+                `${baseName}(${counter}).${fileExt}`);
         } else if (nameType === 'origin') {
             const nameWithoutExt = fileName.substring(0, fileName.lastIndexOf('.'));
             const ext = fileName.substring(fileName.lastIndexOf('.'));
-            duplicateId = normalizedFolder ?
+            duplicateId = withOwner(normalizedFolder ?
                 `${normalizedFolder}/${nameWithoutExt}(${counter})${ext}` :
-                `${nameWithoutExt}(${counter})${ext}`;
+                `${nameWithoutExt}(${counter})${ext}`);
         } else {
             const baseName = `${unique_index}_${fileName}`;
             const nameWithoutExt = baseName.substring(0, baseName.lastIndexOf('.'));
             const ext = baseName.substring(baseName.lastIndexOf('.'));
-            duplicateId = normalizedFolder ?
+            duplicateId = withOwner(normalizedFolder ?
                 `${normalizedFolder}/${nameWithoutExt}(${counter})${ext}` :
-                `${nameWithoutExt}(${counter})${ext}`;
+                `${nameWithoutExt}(${counter})${ext}`);
         }
 
         // 检查新ID是否已存在

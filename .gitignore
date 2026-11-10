@@ -12,3 +12,7 @@ node_modules
 .vscode/
 .claude/
 .agents/
+
+# 本地 IDE / 项目记忆目录
+.idea/
+.workbuddy/

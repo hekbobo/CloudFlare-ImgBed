@@ -11,6 +11,7 @@
  */
 
 import { createSession } from '../../../utils/auth/sessionManager.js';
+import { getOrCreateUser, getBootstrapAdmin } from '../../../utils/userDirectory.js';
 
 export async function onRequestGet(context) {
     const { request, env } = context;
@@ -73,6 +74,8 @@ export async function onRequestGet(context) {
 
     // 2. 取用户信息
     let login = '';
+    let ghName = '';
+    let ghAvatar = '';
     try {
         const userRes = await fetch('https://api.github.com/user', {
             headers: {
@@ -84,6 +87,8 @@ export async function onRequestGet(context) {
         if (!userRes.ok) return fail(`读取 GitHub 账号信息失败（${userRes.status}）`);
         const user = await userRes.json();
         login = String(user.login || '').toLowerCase();
+        ghName = String(user.name || '').trim();
+        ghAvatar = String(user.avatar_url || '');
     } catch (error) {
         console.error('GitHub user fetch failed:', error);
         return fail('读取 GitHub 账号信息失败');
@@ -100,16 +105,43 @@ export async function onRequestGet(context) {
         return fail(`账号 ${login} 不在允许名单内`);
     }
 
+    // 3.5 分配（或复用）用户 UID —— 文件隔离的根，uid 一旦确定永不改变
+    let userRecord = null;
+    try {
+        userRecord = await getOrCreateUser(env, login, {
+            name: ghName,
+            avatar: ghAvatar,
+            provider: 'github',
+        });
+    } catch (error) {
+        console.error('Create user record failed:', error);
+        return fail('创建用户记录失败，请检查数据库配置');
+    }
+    if (!userRecord?.uid) return fail('无法分配用户 UID');
+
+    // 管理员名单：显式配置 GITHUB_ADMIN_USERS 优先；未配置时把最早的用户作为管理员（bootstrap），
+    // 其余登录用户一律按普通用户处理，否则「白名单即管理员」会让文件隔离形同虚设。
     const adminList = parseList(env.GITHUB_ADMIN_USERS);
-    const effectiveAdmins = adminList.length > 0 ? adminList : allowed;
+    let effectiveAdmins = adminList;
+    if (effectiveAdmins.length === 0) {
+        const bootstrap = await getBootstrapAdmin(env);
+        effectiveAdmins = [bootstrap || login];
+    }
 
     // 4. 建立会话（管理员额外发一枚 admin 会话，保证管理后台可用）
+    //    昵称、头像、uid 存进会话，供左上角控件与上传路径使用
+    const profile = {
+        provider: 'github',
+        name: ghName,
+        avatar: ghAvatar,
+        uid: userRecord.uid,
+    };
     const headers = new Headers();
     try {
-        const { cookie: userCookie } = await createSession(env, 'user', login);
+        const { cookie: userCookie } = await createSession(env, 'user', login, profile);
         headers.append('Set-Cookie', userCookie);
         if (effectiveAdmins.includes(login)) {
-            const { cookie: adminCookie } = await createSession(env, 'admin', login);
+            const { cookie: adminCookie } = await createSession(env, 'admin', login, profile);
             headers.append('Set-Cookie', adminCookie);
         }
     } catch (error) {

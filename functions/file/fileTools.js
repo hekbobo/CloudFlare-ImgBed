@@ -1,5 +1,7 @@
 /* ======== 文件读取工具函数 ======== */
 
+import { resolveUserScope } from '../utils/auth/userScope.js';
+
 // 判断请求域名是否在允许的域名列表中
 export function isDomainAllowed(context) {
     const { Referer, securityConfig, url } = context;
@@ -156,7 +158,13 @@ export async function returnWithCheck(context, imgRecord) {
     const response = new Response('success', { status: 200 });
 
     if (isAdminPreview && !adminAuthorized) {
-        return unauthorizedAdminPreviewResponse();
+        // 普通用户（没有 admin 会话）预览自己上传的文件也要放行，否则后台缩略图全 401
+        const scope = context.userScope || await resolveUserScope(context);
+        const owner = String(imgRecord?.metadata?.Owner || '');
+        const isOwner = !!(scope && owner && scope.uid === owner);
+        if (!isOwner) {
+            return unauthorizedAdminPreviewResponse();
+        }
     }
 
     const record = imgRecord;

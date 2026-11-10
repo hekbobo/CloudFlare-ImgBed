@@ -7,6 +7,7 @@
 
 import { getDatabase } from '../../../utils/databaseAdapter.js';
 import { stripSensitiveMetadata } from '../../../utils/metadata/metadataSecurity.js';
+import { resolveUserScope } from '../../../utils/auth/userScope.js';
 
 // CORS 跨域响应头
 const corsHeaders = {
@@ -89,6 +90,12 @@ export async function onRequestGet(context) {
     const listOptions = {
       limit,
     };
+
+    // 用户隔离：非管理员只扫自己 uid 目录下的键
+    const scope = await resolveUserScope(context);
+    if (scope && !scope.isAdmin) {
+      listOptions.prefix = `${scope.uid || '\u0000no-owner'}/`;
+    }
 
     // 如果有 cursor，添加到选项中
     if (cursor) {

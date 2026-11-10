@@ -4,6 +4,7 @@
  */
 import { fetchOthersConfig } from "../../utils/sysConfig";
 import { readIndex } from '../../utils/indexManager.js';
+import { resolveUserScope } from '../../utils/auth/userScope.js';
 
 // CORS 跨域响应头
 const corsHeaders = {
@@ -60,9 +61,14 @@ function isAllowedDirectory(dir, allowedDirs) {
  * @returns {Promise<Object>} 文件列表和目录列表，包含 fromCache 字段
  */
 async function getPublicFileList(context, url, dir, recursive) {
+    // 用户隔离：登录用户只看自己的文件，匿名访问返回空（管理员看全部）
+    const scope = await resolveUserScope(context);
+    const ownerUid = scope && !scope.isAdmin ? (scope.uid || '\u0000no-owner') : '';
+    const scopeKey = ownerUid || (scope ? 'admin' : 'anon');
+
     // 构建缓存键（目录格式去掉末尾的/，与清除缓存时的格式一致）
     const cacheDir = dir.replace(/\/$/, '');
-    const cacheKey = `${url.origin}/api/publicFileList?dir=${cacheDir}&recursive=${recursive}`;
+    const cacheKey = `${url.origin}/api/publicFileList?dir=${cacheDir}&recursive=${recursive}&u=${scopeKey}`;
 
     // 检查缓存中是否有记录
     const cache = caches.default;
@@ -80,6 +86,7 @@ async function getPublicFileList(context, url, dir, recursive) {
         count: -1,
         includeSubdirFiles: recursive,
         accessStatus: 'normal', // 只返回正常可访问的内容
+        ownerUid,
     });
 
     if (!result.success) {

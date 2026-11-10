@@ -1,6 +1,7 @@
 import { batchRemoveFilesFromIndex } from '../../../utils/indexManager.js';
 import { mapConcurrent, normalizeBatchFileIds } from '../../../utils/deleteBatch.js';
 import { deleteFile } from './[[path]].js';
+import { resolveUserScope, findUnauthorizedFileId } from '../../../utils/auth/userScope.js';
 
 const MAX_BATCH_SIZE = 500;
 const DELETE_CONCURRENCY = 10;
@@ -22,6 +23,13 @@ export async function onRequest(context) {
         const fileIds = normalizeBatchFileIds(payload?.fileIds, MAX_BATCH_SIZE);
         if (fileIds.length === 0) {
             return jsonResponse({ success: false, error: 'fileIds is required' }, 400);
+        }
+
+        // 用户隔离：普通用户只能删自己 uid 目录下的文件
+        const scope = await resolveUserScope(context);
+        const unauthorizedId = scope ? findUnauthorizedFileId(scope, fileIds) : fileIds[0];
+        if (unauthorizedId) {
+            return jsonResponse({ success: false, error: `无权删除该文件：${unauthorizedId}` }, 403);
         }
         const url = new URL(context.request.url);
         const results = await mapConcurrent(fileIds, DELETE_CONCURRENCY, async (fileId) => {

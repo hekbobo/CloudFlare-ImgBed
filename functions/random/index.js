@@ -1,6 +1,7 @@
 import { fetchOthersConfig } from "../utils/sysConfig";
 import { matchesFileType } from "../utils/mimeTypes";
 import { readIndex } from "../utils/indexManager";
+import { resolveUserScope } from "../utils/auth/userScope.js";
 import { detectDevice, resolveOrientation, addClientHintsHeaders } from "./adaptive.js";
 
 // CORS 跨域响应头
@@ -175,14 +176,19 @@ export async function onRequest(context) {
 }
 
 async function getRandomFileList(context, url, dir) {
+    // 用户隔离：随机图只在当前用户自己的文件里取，匿名访问为空
+    const scope = await resolveUserScope(context);
+    const ownerUid = scope && !scope.isAdmin ? (scope.uid || '\u0000no-owner') : '';
+    const scopeKey = ownerUid || (scope ? 'admin' : 'anon');
+
     // 检查缓存中是否有记录，有则直接返回
     const cache = caches.default;
-    const cacheRes = await cache.match(`${url.origin}/api/randomFileList?dir=${dir}`);
+    const cacheRes = await cache.match(`${url.origin}/api/randomFileList?dir=${dir}&u=${scopeKey}`);
     if (cacheRes) {
         return JSON.parse(await cacheRes.text());
     }
 
-    let allRecords = await readIndex(context, { directory: dir, count: -1, includeSubdirFiles: true, accessStatus: 'normal' });
+    let allRecords = await readIndex(context, { directory: dir, count: -1, includeSubdirFiles: true, accessStatus: 'normal', ownerUid });
 
     // 仅保留记录的name和metadata中的必要字段
     allRecords = allRecords.files?.map(item => {
@@ -195,7 +201,7 @@ async function getRandomFileList(context, url, dir) {
     });
 
     // 缓存结果，缓存时间为24小时
-    await cache.put(`${url.origin}/api/randomFileList?dir=${dir}`, new Response(JSON.stringify(allRecords), {
+    await cache.put(`${url.origin}/api/randomFileList?dir=${dir}&u=${scopeKey}`, new Response(JSON.stringify(allRecords), {
         headers: {
             "Content-Type": "application/json",
         }

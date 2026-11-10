@@ -1,6 +1,7 @@
 import { getDirectoryTree } from '../utils/indexManager';
 import { dualAuthCheck } from '../utils/auth/dualAuth';
 import { fetchPageConfig } from '../utils/sysConfig';
+import { resolveUserScope } from '../utils/auth/userScope.js';
 
 /**
  * 目录树 API 端点
@@ -43,7 +44,10 @@ export async function onRequestGet(context) {
     }
     
     try {
-        const tree = await getDirectoryTree(context);
+        // 用户隔离：只返回自己的文件产生的目录
+        const scope = await resolveUserScope(context);
+        const ownerUid = scope && !scope.isAdmin ? (scope.uid || '\u0000no-owner') : '';
+        const tree = await getDirectoryTree(context, ownerUid);
         const cacheTime = url.searchParams.get('cacheTime') || 60;
         
         return new Response(JSON.stringify({ tree }), {

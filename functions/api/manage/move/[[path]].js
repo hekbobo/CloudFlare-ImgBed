@@ -10,6 +10,7 @@ import {
     resolveWebDAVCredentials,
 } from "../../../utils/metadata/channelCredentials.js";
 import { cleanPersistedMetadata } from "../../../utils/metadata/metadataSecurity.js";
+import { resolveUserScope, ensureOwnerPrefix } from "../../../utils/auth/userScope.js";
 
 export async function onRequest(context) {
     const { request, env, params, waitUntil } = context;
@@ -17,8 +18,9 @@ export async function onRequest(context) {
     const url = new URL(request.url);
 
     // 读取目标文件夹，并进行路径安全处理
+    // 普通用户的目标目录强制落在自己的 uid 目录下，避免移出隔离区
     const rawDist = url.searchParams.get('dist') || '';
-    const dist = sanitizeUploadFolder(rawDist);
+    const dist = ensureOwnerPrefix(await resolveUserScope(context), sanitizeUploadFolder(rawDist)).replace(/\/+$/, '');
 
     // 读取folder参数，判断是否为文件夹移动请求
     const folder = url.searchParams.get('folder');

@@ -1,4 +1,5 @@
 import { authenticate, AUTH_SCOPE } from "../../utils/auth/authCore.js";
+import { resolveUserScope, canAccessFileId, forbiddenResponse } from "../../utils/auth/userScope.js";
 
 const DEFAULT_MANAGE_CACHE_CONTROL = 'private, no-store, max-age=0';
 
@@ -68,6 +69,27 @@ const corsHeaders = {
   'Access-Control-Max-Age': '86400',
 };
 
+/**
+ * 普通登录用户（非管理员）可以访问的文件级接口。
+ * 站点级配置（sysConfig / apiTokens / cusConfig / batch 索引 / dedup / block / white）
+ * 一律不放行，否则普通用户能改站点设置或自己发 API Token 提权。
+ */
+const USER_FILE_PATHS = [
+  '/api/manage/list',
+  '/api/manage/batch/list',
+  '/api/manage/delete',
+  '/api/manage/move',
+  '/api/manage/rename',
+  '/api/manage/tags',
+  '/api/manage/metadata',
+  '/api/manage/quota',
+];
+
+function isUserFilePath(pathname) {
+  const path = pathname.toLowerCase().replace(/\/$/, '');
+  return USER_FILE_PATHS.some(base => path === base || path.startsWith(base + '/'));
+}
+
 async function authentication(context) {
   // OPTIONS 预检请求不需要鉴权，直接返回 CORS 响应
   if (context.request.method === 'OPTIONS') {
@@ -80,6 +102,17 @@ async function authentication(context) {
   const pathname = new URL(context.request.url).pathname;
   const requiredPermission = extractRequiredPermission(pathname);
 
+  // 1) 有会话（GitHub 登录 / 管理员）：管理员全放行，普通用户只放行文件级接口
+  const scope = await resolveUserScope(context);
+  if (scope) {
+    context.userScope = scope;
+    if (scope.isAdmin || isUserFilePath(pathname)) {
+      return context.next();
+    }
+    return forbiddenResponse('需要管理员权限');
+  }
+
+  // 2) 没有会话：回落到 API Token（原有 admin scope），authCode 不在此列
   const result = await authenticate({
     env: context.env,
     request: context.request,
@@ -94,4 +127,40 @@ async function authentication(context) {
   return context.next();
 }
 
-export const onRequest = [errorHandling, authentication];
+/**
+ * 文件归属校验：这些接口把文件 ID 直接放在 URL 路径里，
+ * 管理员放行，普通用户只能操作自己 uid 目录下的文件。
+ * （batch / dedup 这类把 ID 放在 body 里的接口各自校验）
+ */
+const FILE_PATH_ROUTE = /^\/api\/manage\/(delete|move|rename|metadata|tags|block|white)\/(.+)$/i;
+
+async function fileOwnership(context) {
+    if (context.request.method === 'OPTIONS') return context.next();
+
+    const url = new URL(context.request.url);
+    let pathname = url.pathname;
+    try {
+        pathname = decodeURIComponent(pathname);
+    } catch {
+        // 保留原值
+    }
+
+    const match = pathname.match(FILE_PATH_ROUTE);
+    if (!match) return context.next();
+
+    const scope = context.userScope || await resolveUserScope(context);
+    if (!scope) return UnauthorizedException('You need to login');
+    if (scope.isAdmin) return context.next();
+
+    const ids = match[2].split(',').map(s => s.trim()).filter(Boolean);
+    for (const id of ids) {
+        if (!canAccessFileId(scope, id)) {
+            return forbiddenResponse(`无权操作该文件：${id}`);
+        }
+    }
+
+    return context.next();
+}
+
+export const onRequestWithOwnership = [errorHandling, authentication, fileOwnership];
+export const onRequest = onRequestWithOwnership;

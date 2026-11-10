@@ -503,7 +503,8 @@ export async function readIndex(context, options = {}) {
             includeTags = [],
             excludeTags = [],
             countOnly = false,
-            includeSubdirFiles = false
+            includeSubdirFiles = false,
+            ownerUid = ''
         } = options;
 
         // 将参数统一转换为数组形式
@@ -531,11 +532,24 @@ export async function readIndex(context, options = {}) {
 
         let filteredFiles = index.files;
 
+        // 目录以 metadata.Directory 为准（'' = 根目录）。
+        // 不能拿 id 推导：文件 id 带用户前缀（uXXXX/foo.jpg），否则列表里会多出一层 uid 目录。
+        const resolveFileDirectory = (file) => {
+            const metaDir = file.metadata?.Directory;
+            if (typeof metaDir === 'string') return metaDir;
+            return extractDirectory(file.id);
+        };
+
+        // 用户隔离：只保留归属该 uid 的文件（管理员不传此参数，即看全部）
+        if (ownerUid) {
+            filteredFiles = filteredFiles.filter(file => file.metadata?.Owner === ownerUid);
+        }
+
         // 目录过滤
         if (directory) {
             const normalizedDir = directory.endsWith('/') ? directory : directory + '/';
             filteredFiles = filteredFiles.filter(file => {
-                const fileDir = file.metadata.Directory ? file.metadata.Directory : extractDirectory(file.id);
+                const fileDir = resolveFileDirectory(file);
                 return fileDir.startsWith(normalizedDir) || file.metadata.Directory === directory;
             });
         }
@@ -690,7 +704,7 @@ export async function readIndex(context, options = {}) {
 
         // 计算当前目录下的直接文件（不包含子目录文件）
         const directFiles = filteredFiles.filter(file => {
-            const fileDir = file.metadata.Directory ? file.metadata.Directory : extractDirectory(file.id);
+            const fileDir = resolveFileDirectory(file);
             return fileDir === dirPrefix;
         });
         const directFileCount = directFiles.length;
@@ -709,7 +723,7 @@ export async function readIndex(context, options = {}) {
         // 提取目录信息
         const directories = new Set();
         filteredFiles.forEach(file => {
-            const fileDir = file.metadata.Directory ? file.metadata.Directory : extractDirectory(file.id);
+            const fileDir = resolveFileDirectory(file);
             if (fileDir && fileDir.startsWith(dirPrefix)) {
                 const relativePath = fileDir.substring(dirPrefix.length);
                 const firstSlashIndex = relativePath.indexOf('/');
@@ -2149,7 +2163,7 @@ export async function getIndexStorageStats(context) {
  * @param {Object} context - 上下文对象
  * @returns {Object} 树形结构 { name, path, children }
  */
-export async function getDirectoryTree(context) {
+export async function getDirectoryTree(context, ownerUid = '') {
     // 1. 合并挂起操作
     await mergeOperationsToIndex(context);
 
@@ -2160,7 +2174,11 @@ export async function getDirectoryTree(context) {
     const directorySet = new Set();
 
     if (index.files && index.files.length > 0) {
-        for (const file of index.files) {
+        // 用户隔离：只统计自己的文件产生的目录
+        const scopedFiles = ownerUid
+            ? index.files.filter(file => file.metadata?.Owner === ownerUid)
+            : index.files;
+        for (const file of scopedFiles) {
             // 获取文件的目录路径
             const dirPath = file.metadata?.Directory || extractDirectory(file.id);
 

@@ -7,6 +7,7 @@ import { CreateMultipartUploadCommand, UploadPartCommand, AbortMultipartUploadCo
 import { getDatabase, checkDatabaseConfig } from '../utils/databaseAdapter.js';
 import { fetchPageConfig } from '../utils/sysConfig.js';
 import { resolveFileType } from '../utils/mimeTypes.js';
+import { getMaxUploadSizeBytes, buildFileTooLargeResponse } from '../utils/uploadSizeLimit.js';
 
 // 初始化分块上传
 export async function initializeChunkedUpload(context) {
@@ -130,6 +131,15 @@ export async function handleChunkUpload(context) {
         if (Date.now() > sessionInfo.expiresAt) {
             return createResponse('Error: Upload session expired', { status: 410 });
         }
+
+        // 累计已接收字节数，超过上限立刻拒绝，避免传完所有分块才在合并阶段被拦
+        const maxSizeBytes = getMaxUploadSizeBytes(env);
+        const receivedBytes = (Number(sessionInfo.receivedBytes) || 0) + chunk.size;
+        if (receivedBytes > maxSizeBytes) {
+            return buildFileTooLargeResponse(env, receivedBytes);
+        }
+        sessionInfo.receivedBytes = receivedBytes;
+        await db.put(sessionKey, JSON.stringify(sessionInfo), { expirationTtl: 3600 });
 
         // 获取上传渠道
         const uploadChannel = url.searchParams.get('uploadChannel') || sessionInfo.uploadChannel || 'telegram';

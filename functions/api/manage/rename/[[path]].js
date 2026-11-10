@@ -10,6 +10,7 @@ import {
     resolveWebDAVCredentials,
 } from "../../../utils/metadata/channelCredentials.js";
 import { cleanPersistedMetadataInPlace } from "../../../utils/metadata/metadataSecurity.js";
+import { resolveUserScope, ensureOwnerPrefix } from "../../../utils/auth/userScope.js";
 import { buildFileMetadataForManagement } from "../../../utils/metadata/metadataView.js";
 
 // CORS 跨域响应头
@@ -82,7 +83,10 @@ export async function onRequest(context) {
         }
 
         // 路径安全处理
-        const newFileId = sanitizeUploadFolder(body.newFileId.trim());
+        let newFileId = sanitizeUploadFolder(body.newFileId.trim());
+
+        // 普通用户只能改名到自己 uid 目录下（前端传完整 ID 时保持不变）
+        newFileId = ensureOwnerPrefix(await resolveUserScope(context), newFileId);
 
         const url = new URL(request.url);
         const db = getDatabase(env);

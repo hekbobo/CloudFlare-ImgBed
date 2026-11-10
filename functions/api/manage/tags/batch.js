@@ -1,10 +1,16 @@
 import { applyTagItems } from "../../../utils/tagService.js";
 import { APIError, json, readJSON, errorResponse } from "../../../utils/apiResponse.js";
+import { resolveUserScope, findUnauthorizedFileId, forbiddenResponse } from "../../../utils/auth/userScope.js";
 
 export async function onRequestPost(context) {
     try {
         const { fileIds, tags, action = 'set', repairIndexIds = [] } = await readJSON(context.request);
         if (!Array.isArray(fileIds)) throw new APIError('INVALID_INPUT', 'fileIds must be an array.');
+
+        // 用户隔离：普通用户只能改自己文件的标签
+        const scope = await resolveUserScope(context);
+        const unauthorizedId = scope ? findUnauthorizedFileId(scope, fileIds) : (fileIds[0] || 'unknown');
+        if (unauthorizedId) return forbiddenResponse(`无权操作该文件：${unauthorizedId}`);
         const ids = new Set(fileIds);
         if (!Array.isArray(repairIndexIds) || repairIndexIds.length > fileIds.length || repairIndexIds.some(id => !ids.has(id))) throw new APIError('INVALID_INPUT', 'Invalid index repair file IDs.');
         const repairs = new Set(repairIndexIds);

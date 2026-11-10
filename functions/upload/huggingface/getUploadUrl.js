@@ -16,6 +16,8 @@ import { fetchUploadConfig } from '../../utils/sysConfig.js';
 import { userAuthCheck, UnauthorizedResponse } from '../../utils/auth/userAuth.js';
 import { buildUniqueFileId, getUploadIp, isBlockedUploadIp, createResponse, checkUploadFormat } from '../uploadTools.js';
 import { resolveUploadExpiry } from '../../utils/fileExpiryService.js';
+import { checkFileSize } from '../../utils/uploadSizeLimit.js';
+import { resolveUserScope } from '../../utils/auth/userScope.js';
 
 export async function onRequestPost(context) {
     const { request, env } = context;
@@ -28,6 +30,8 @@ export async function onRequestPost(context) {
         if (!await userAuthCheck(env, url, request, requiredPermission)) {
             return UnauthorizedResponse('Unauthorized');
         }
+
+        context.userScope = await resolveUserScope(context);
 
         // 检查上传IP是否被封禁
         const uploadIp = getUploadIp(request);
@@ -50,6 +54,10 @@ export async function onRequestPost(context) {
                 headers: { 'Content-Type': 'application/json' }
             });
         }
+
+        // 文件大小限制（默认 3MB），在签发直传地址前拦截
+        const sizeError = checkFileSize(fileSize, env);
+        if (sizeError) return sizeError;
 
         // 直传前校验有效期参数，避免文件已传到 HuggingFace 才在提交时被拒绝
         const expiry = await resolveUploadExpiry(context);

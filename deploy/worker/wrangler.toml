@@ -39,6 +39,11 @@ binding = "IMAGES"
 # TG_BOT_TOKEN = ""
 # TG_CHAT_ID = ""
 
+# ===== 上传大小限制 =====
+# 单个文件上限（MB），默认 3，不配置时同样按 3MB 处理。
+# 服务端强校验（/upload、分块上传、HuggingFace 直传三条路径），前端 3MB 预检只是提升提示体验。
+MAX_UPLOAD_SIZE_MB = "3"
+
 # ===== GitHub OAuth 登录（配置任意一项前，先看下面顺序）=====
 # 1) GITHUB_CLIENT_ID     非敏感，可写在此处；配置后登录门禁才会启用
 # 2) GITHUB_CLIENT_SECRET 必须用 secret 上传（wrangler secret put）

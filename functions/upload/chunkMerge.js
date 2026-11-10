@@ -185,7 +185,9 @@ async function handleChannelBasedMerge(context, uploadId, totalChunks, originalF
             TimeStamp: Date.now(),
             Label: "None",
             Directory: normalizedFolder === '' ? '' : normalizedFolder + '/',
-            Tags: []
+            Tags: [],
+            Owner: context.userScope?.uid || '',
+            OwnerLogin: context.userScope?.login || '',
         };
         if (context.fileExpiresAt) {
             metadata.ExpiresAt = context.fileExpiresAt;

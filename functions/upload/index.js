@@ -16,6 +16,8 @@ import { WebDAVAPI } from "../utils/storage/webdavAPI";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { getDatabase } from '../utils/databaseAdapter.js';
 import { resolveUploadExpiry } from '../utils/fileExpiryService.js';
+import { checkFileSize } from '../utils/uploadSizeLimit.js';
+import { resolveUserScope } from '../utils/auth/userScope.js';
 
 
 export async function onRequest(context) {  // Contents of context object
@@ -37,6 +39,9 @@ export async function onRequest(context) {  // Contents of context object
     if (!await userAuthCheck(env, url, request, requiredPermission)) {
         return UnauthorizedResponse('Unauthorized');
     }
+
+    // 解析当前用户范围：文件按 uid 分目录，列表按 Owner 隔离
+    context.userScope = await resolveUserScope(context);
 
     // 获得上传IP
     const uploadIp = getUploadIp(request);
@@ -144,6 +149,9 @@ async function processFileUpload(context, formdata = null) {
     let fileName = file.name;
     const formatError = checkUploadFormat(fileName, context.uploadConfig);
     if (formatError) return formatError;
+    // 文件大小限制（默认 3MB，可通过环境变量 MAX_UPLOAD_SIZE_MB 调整）
+    const sizeError = checkFileSize(file?.size, context.env);
+    if (sizeError) return sizeError;
     // 部分客户端（同步工具、脚本）不提供有效的 Content-Type，按扩展名兜底推断。
     // 否则图片会被记成 application/octet-stream，导致随机图类型过滤、尺寸提取、
     // 图片处理校验全部失效。
@@ -190,7 +198,10 @@ async function processFileUpload(context, formdata = null) {
         TimeStamp: time,
         Label: "None",
         Directory: normalizedFolder === '' ? '' : normalizedFolder + '/',
-        Tags: []
+        Tags: [],
+        // 归属用户：列表隔离按这个字段过滤，老文件由迁移脚本补成管理员 uid
+        Owner: context.userScope?.uid || '',
+        OwnerLogin: context.userScope?.login || '',
     };
 
     // 添加图片尺寸信息

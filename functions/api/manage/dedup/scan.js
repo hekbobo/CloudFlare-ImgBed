@@ -7,6 +7,7 @@
  * 读取异常、跳过文件、超时或索引变化均标记为不完整；其他渠道报告为不可读。
  */
 import { getDatabase } from '../../../utils/databaseAdapter.js';
+import { resolveUserScope } from '../../../utils/auth/userScope.js';
 
 class ScanTimeoutError extends Error {
     constructor() {
@@ -166,6 +167,10 @@ export async function onRequest(context) {
     } else if (!metaReadFailed && !timedOut) {
         chunkErrors.push({ chunk: 'meta', error: 'index meta missing' });
     }
+    // 用户隔离：非管理员只扫描归属自己的记录
+    const scope = await resolveUserScope(context);
+    const ownerOnly = scope && !scope.isAdmin ? (scope.uid || '\u0000no-owner') : '';
+
     const entries = [];
     for (let i = 0; i < (meta.chunkCount || 0); i++) {
         if (timedOut) break;
@@ -206,9 +211,9 @@ export async function onRequest(context) {
                 recordErrors.push({ id: entry.id, error: 'record not found' });
                 continue;
             }
+            if (ownerOnly && (rec.metadata?.Owner || '') !== ownerOnly) continue;
             records.push({ id: entry.id, metadata: rec.metadata || {} });
-        } catch (err) {
-            if (err instanceof ScanTimeoutError) {
+        } catch (err) {            if (err instanceof ScanTimeoutError) {
                 timedOut = true;
                 break;
             }

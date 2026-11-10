@@ -5,6 +5,7 @@ import {
 import { getDatabase } from '../../utils/databaseAdapter.js';
 import { createMetadataViewContext, serializeFileRecordForManagement } from '../../utils/metadata/metadataView.js';
 import { maybeCleanupExpiredFiles } from '../../utils/fileExpiryService.js';
+import { resolveUserScope } from '../../utils/auth/userScope.js';
 
 // CORS 跨域响应头
 const corsHeaders = {
@@ -20,6 +21,10 @@ export async function onRequest(context) {
 
     // 管理端打开文件列表时顺带清理一批到期文件（Pages 没有定时任务，依靠它和手动清理）
     maybeCleanupExpiredFiles(context);
+
+    // 用户隔离：非管理员只能看到自己的文件
+    const scope = await resolveUserScope(context);
+    const ownerUid = scope && !scope.isAdmin ? (scope.uid || '\u0000no-owner') : '';
 
     // 解析查询参数
     let start = parseInt(url.searchParams.get('start'), 10) || 0;
@@ -132,7 +137,8 @@ export async function onRequest(context) {
                 channelName: channelNameArray,
                 includeTags: includeTagsArray,
                 excludeTags: excludeTagsArray,
-                countOnly: true
+                countOnly: true,
+                ownerUid
             });
 
             return new Response(JSON.stringify({
@@ -158,11 +164,12 @@ export async function onRequest(context) {
             includeTags: includeTagsArray,
             excludeTags: excludeTagsArray,
             includeSubdirFiles: recursive,
+            ownerUid,
         });
 
         // 索引读取失败，直接从 KV 中获取所有文件记录
         if (!result.success) {
-            const dbRecords = await getAllFileRecords(context.env, dir);
+            const dbRecords = await getAllFileRecords(context.env, dir, ownerUid);
 
             return new Response(JSON.stringify({
                 files: dbRecords.files,
@@ -211,9 +218,12 @@ export async function onRequest(context) {
     }
 }
 
-async function getAllFileRecords(env, dir) {
+async function getAllFileRecords(env, dir, ownerUid = '') {
     const allRecords = [];
     let cursor = null;
+
+    // 非管理员：只扫自己 uid 目录下的键
+    const prefix = ownerUid ? `${ownerUid}/${dir || ''}` : dir;
 
     try {
         const db = getDatabase(env);
@@ -221,7 +231,7 @@ async function getAllFileRecords(env, dir) {
 
         while (true) {
             const response = await db.list({
-                prefix: dir,
+                prefix,
                 limit: 1000,
                 cursor: cursor
             });
@@ -258,7 +268,8 @@ async function getAllFileRecords(env, dir) {
         const directories = new Set();
         const filteredRecords = [];
         allRecords.forEach(item => {
-            const subDir = item.name.substring(dir.length);
+            const nameWithoutOwner = ownerUid ? item.name.slice(ownerUid.length + 1) : item.name;
+            const subDir = nameWithoutOwner.substring(dir.length);
             const firstSlashIndex = subDir.indexOf('/');
             if (firstSlashIndex !== -1) {
                 directories.add(dir + subDir.substring(0, firstSlashIndex));

@@ -10,7 +10,9 @@ import { fetchPageConfig, fetchUploadConfig } from '../../utils/sysConfig.js';
 import { getDatabase } from '../../utils/databaseAdapter.js';
 import { moderateContent, endUpload, getUploadIp, getIPAddress, sanitizeUploadFolder, createResponse, checkUploadFormat } from '../uploadTools.js';
 import { userAuthCheck, UnauthorizedResponse } from '../../utils/auth/userAuth.js';
+import { checkFileSize } from '../../utils/uploadSizeLimit.js';
 import { resolveUploadExpiry } from '../../utils/fileExpiryService.js';
+import { resolveUserScope } from '../../utils/auth/userScope.js';
 
 export async function onRequestPost(context) {
     const { request, env, waitUntil } = context;
@@ -23,6 +25,8 @@ export async function onRequestPost(context) {
             return UnauthorizedResponse('Unauthorized');
         }
 
+        context.userScope = await resolveUserScope(context);
+
         const body = await request.json();
         const { fullId, filePath, sha256, fileSize, fileName, fileType, channelName } = body;
 
@@ -34,6 +38,10 @@ export async function onRequestPost(context) {
                 headers: { 'Content-Type': 'application/json' }
             });
         }
+
+        // 文件大小限制（默认 3MB），提交元数据时再校验一次，防止绕过直传前检查
+        const sizeError = checkFileSize(fileSize, env);
+        if (sizeError) return sizeError;
 
         // 路径安全处理：使用统一的路径安全函数
         const sanitizedFullId = sanitizeUploadFolder(fullId);
@@ -123,7 +131,9 @@ export async function onRequestPost(context) {
             TimeStamp: Date.now(),
             Label: "None",
             Directory: normalizedDirectory,
-            Tags: []
+            Tags: [],
+            Owner: context.userScope?.uid || '',
+            OwnerLogin: context.userScope?.login || '',
         };
 
         if (expiry.expiresAt) {
