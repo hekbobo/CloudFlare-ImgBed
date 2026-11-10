@@ -425,6 +425,22 @@ export async function isBlockedUploadIp(env, uploadIp) {
     }
 }
 
+/**
+ * 时间分区目录：`YYYY/MM/DD`
+ *
+ * Worker 运行在 UTC，直接用 toISOString() 会在北京时间 0-8 点错到前一天，
+ * 所以固定按 UTC+8 换算（改站点主要地区时同步改这个常量即可）。
+ */
+const DATE_FOLDER_TZ_OFFSET_MINUTES = 8 * 60;
+
+function buildDateFolder(timestamp = Date.now()) {
+    const local = new Date(timestamp + DATE_FOLDER_TZ_OFFSET_MINUTES * 60 * 1000);
+    const year = local.getUTCFullYear();
+    const month = String(local.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(local.getUTCDate()).padStart(2, '0');
+    return `${year}/${month}/${day}`;
+}
+
 // 构建唯一文件ID
 export async function buildUniqueFileId(context, fileName, fileType = 'application/octet-stream') {
     const { env, url } = context;
@@ -440,29 +456,34 @@ export async function buildUniqueFileId(context, fileName, fileType = 'applicati
     // 处理文件名，移除特殊字符
     fileName = sanitizeFileName(fileName);
 
-    // 用户目录前缀：文件 ID 形如 `<uid>/xxx.jpg`，R2 里天然按用户分目录
-    const ownerPrefix = context?.userScope?.uid ? `${context.userScope.uid}/` : '';
-    const withOwner = (path) => (ownerPrefix ? ownerPrefix + path : path);
+    // 目录前缀：`<uid>/<YYYY>/<MM>/<DD>/<自定义目录>/`
+    // uid 段隔离用户，年月日段让文件天然按天归档，对象存储里不用面对扁平的一大坨文件
+    const prefixSegments = [];
+    if (context?.userScope?.uid) prefixSegments.push(context.userScope.uid);
+    prefixSegments.push(buildDateFolder());
+    if (normalizedFolder) prefixSegments.push(normalizedFolder);
+    const prefix = prefixSegments.filter(Boolean).join('/') + '/';
+    const withPrefix = (path) => prefix + path;
 
     const unique_index = Date.now() + Math.floor(Math.random() * 10000);
     let baseId = '';
 
     // 根据命名方式构建基础ID
     if (nameType === 'index') {
-        baseId = withOwner(normalizedFolder ? `${normalizedFolder}/${unique_index}.${fileExt}` : `${unique_index}.${fileExt}`);
+        baseId = withPrefix(`${unique_index}.${fileExt}`);
     } else if (nameType === 'origin') {
-        baseId = withOwner(normalizedFolder ? `${normalizedFolder}/${fileName}` : fileName);
+        baseId = withPrefix(fileName);
     } else if (nameType === 'short') {
         // 对于短链接，直接在循环中生成不重复的ID
         while (true) {
             const shortId = generateShortId(8);
-            const testFullId = withOwner(normalizedFolder ? `${normalizedFolder}/${shortId}.${fileExt}` : `${shortId}.${fileExt}`);
+            const testFullId = withPrefix(`${shortId}.${fileExt}`);
             if (await db.get(testFullId) === null) {
                 return testFullId;
             }
         }
     } else {
-        baseId = withOwner(normalizedFolder ? `${normalizedFolder}/${unique_index}_${fileName}` : `${unique_index}_${fileName}`);
+        baseId = withPrefix(`${unique_index}_${fileName}`);
     }
 
     // 检查基础ID是否已存在
@@ -477,22 +498,16 @@ export async function buildUniqueFileId(context, fileName, fileType = 'applicati
 
         if (nameType === 'index') {
             const baseName = unique_index;
-            duplicateId = withOwner(normalizedFolder ?
-                `${normalizedFolder}/${baseName}(${counter}).${fileExt}` :
-                `${baseName}(${counter}).${fileExt}`);
+            duplicateId = withPrefix(`${baseName}(${counter}).${fileExt}`);
         } else if (nameType === 'origin') {
             const nameWithoutExt = fileName.substring(0, fileName.lastIndexOf('.'));
             const ext = fileName.substring(fileName.lastIndexOf('.'));
-            duplicateId = withOwner(normalizedFolder ?
-                `${normalizedFolder}/${nameWithoutExt}(${counter})${ext}` :
-                `${nameWithoutExt}(${counter})${ext}`);
+            duplicateId = withPrefix(`${nameWithoutExt}(${counter})${ext}`);
         } else {
             const baseName = `${unique_index}_${fileName}`;
             const nameWithoutExt = baseName.substring(0, baseName.lastIndexOf('.'));
             const ext = baseName.substring(baseName.lastIndexOf('.'));
-            duplicateId = withOwner(normalizedFolder ?
-                `${normalizedFolder}/${nameWithoutExt}(${counter})${ext}` :
-                `${nameWithoutExt}(${counter})${ext}`);
+            duplicateId = withPrefix(`${nameWithoutExt}(${counter})${ext}`);
         }
 
         // 检查新ID是否已存在
