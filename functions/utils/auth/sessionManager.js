@@ -252,7 +252,9 @@ function buildSessionCookie(name, token, maxAge, secure = false) {
         `${name}=${token}`,
         `Path=/`,
         `HttpOnly`,
-        `SameSite=Strict`,
+        // Lax 而非 Strict：OAuth 回调是「跨站 → 本站」的顶层跳转，
+        // Strict 会让浏览器在回跳那一跳丢掉会话 Cookie，导致登录后又被门禁打回登录页。
+        `SameSite=Lax`,
         `Max-Age=${maxAge}`,
     ];
     if (secure) {
