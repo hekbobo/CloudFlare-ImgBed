@@ -6,7 +6,8 @@
  */
 
 import { createSession } from './sessionManager.js';
-import { getOrCreateUser, getBootstrapAdmin } from '../userDirectory.js';
+import { getOrCreateUser } from '../userDirectory.js';
+import { isSuperAdmin } from './adminPolicy.js';
 
 /** 逗号分隔的配置项统一转小写数组 */
 export function parseList(value) {
@@ -51,6 +52,8 @@ export function stateCookie(name, state, secure) {
 /**
  * 白名单校验 + 用户目录登记 + 会话签发。
  *
+ * 管理员身份由 adminPolicy.js 写死决定，调用方无需（也无法）再传名单。
+ *
  * @returns {{ ok: true, headers: Headers } | { ok: false, message: string }}
  */
 export async function establishSession(options) {
@@ -62,7 +65,6 @@ export async function establishSession(options) {
         provider,
         displayName,
         allowedList,
-        adminList,
         allowedEnvName,
         stateCookieName,
         secure,
@@ -70,16 +72,13 @@ export async function establishSession(options) {
 
     const clearCookie = stateCookieName ? clearStateCookie(stateCookieName, secure) : null;
 
-    // 白名单为空 = 拒绝所有人，避免配了 Client 却忘了白名单直接把站点开放
-    if (allowedList.length === 0) {
-        return {
-            ok: false,
-            message: `站点未配置 ${allowedEnvName}，已拒绝登录`,
-            clearCookie,
-        };
-    }
-    if (!allowedList.includes(login)) {
+    // 白名单未配置 = 不限制（任何账号都可登录）；配置了则严格校验。
+    // 想恢复限制时填上 ${allowedEnvName} 即可，无需改代码。
+    if (allowedList.length > 0 && !allowedList.includes(login)) {
         return { ok: false, message: `账号 ${login} 不在允许名单内`, clearCookie };
+    }
+    if (allowedList.length === 0) {
+        console.warn(`[auth] ${allowedEnvName} 未配置，${provider} 登录不做账号限制`);
     }
 
     let record = null;
@@ -93,13 +92,10 @@ export async function establishSession(options) {
         return { ok: false, message: '无法分配用户 UID', clearCookie };
     }
 
-    // 管理员名单：显式配置优先；未配置时把最早注册的账号作为管理员（bootstrap），
-    // 其余登录用户一律按普通用户处理，否则「白名单即管理员」会让文件隔离形同虚设。
-    let effectiveAdmins = adminList;
-    if (effectiveAdmins.length === 0) {
-        const bootstrap = await getBootstrapAdmin(env);
-        effectiveAdmins = [bootstrap || login];
-    }
+    // 管理员判定：写死在 adminPolicy.js（只有 GitHub 的 hekbobo）。
+    // 不再读 GITHUB_ADMIN_USERS / GOOGLE_ADMIN_USERS，也不再走「最早注册账号自动接管」的 bootstrap，
+    // 避免多套来源叠加后出现「不知道从哪冒出来的管理员」。
+    const admin = isSuperAdmin(login, provider);
 
     const profile = {
         provider,
@@ -112,7 +108,7 @@ export async function establishSession(options) {
     try {
         const { cookie: userCookie } = await createSession(env, 'user', login, profile);
         headers.append('Set-Cookie', userCookie);
-        if (effectiveAdmins.includes(login)) {
+        if (admin) {
             const { cookie: adminCookie } = await createSession(env, 'admin', login, profile);
             headers.append('Set-Cookie', adminCookie);
         }

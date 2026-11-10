@@ -44,19 +44,25 @@ binding = "IMAGES"
 # 服务端强校验（/upload、分块上传、HuggingFace 直传三条路径），前端 3MB 预检只是提升提示体验。
 MAX_UPLOAD_SIZE_MB = "3"
 
+# ===== 单用户存储配额 =====
+# 每个普通用户最多占用的空间（MB），默认 1024（1GB）；设为 0 表示不限制。
+# 用量口径与 /api/manage/quota 一致：索引里 metadata.Owner === uid 的 FileSize 之和。
+# 管理员不受限制（能看全站、也能改这个变量）。
+# USER_QUOTA_MB = "1024"
+
 # ===== GitHub OAuth 登录（配置任意一项前，先看下面顺序）=====
 # 1) GITHUB_CLIENT_ID     非敏感，可写在此处；配置后登录门禁才会启用
 # 2) GITHUB_CLIENT_SECRET 必须用 secret 上传（wrangler secret put）
-# 3) GITHUB_ALLOWED_USERS 必须用 secret 上传，逗号分隔的 GitHub 用户名；留空 = 拒绝所有人
-# 4) GITHUB_ADMIN_USERS   可选，拥有管理后台权限的用户；不填则默认等于 ALLOWED
+# 3) GITHUB_ALLOWED_USERS 可选，逗号分隔的 GitHub 用户名；留空 = 不限制（任何人可登录）
+#    管理员写死在 functions/utils/auth/adminPolicy.js（仅 GitHub 的 hekbobo），不再读 ADMIN_USERS 变量
 # 5) GITHUB_REDIRECT_URI  可选，默认 https://<你的域名>/api/auth/github/callback
 # GITHUB_CLIENT_ID = ""
 
 # ===== Google 登录（可选，可与 GitHub 同时开启）=====
 # 1) GOOGLE_CLIENT_ID      非敏感，可写在此处；与 SECRET 同时存在才会出现在登录页
 # 2) GOOGLE_CLIENT_SECRET  必须用 secret 上传（wrangler secret put）
-# 3) GOOGLE_ALLOWED_USERS  必须用 secret 上传，逗号分隔的邮箱；留空 = 拒绝 Google 登录
-# 4) GOOGLE_ADMIN_USERS    可选，拥有管理后台权限的邮箱；不填则退回到「最早注册的账号」
+# 3) GOOGLE_ALLOWED_USERS  可选，逗号分隔的邮箱；留空 = 不限制（任何 Google 账号可登录）
+#    Google 登录不会获得管理员权限（管理员写死为 GitHub 的 hekbobo）
 # 5) GOOGLE_REDIRECT_URI   可选，默认 https://<你的域名>/api/auth/google/callback
 # 注意：Google 控制台的「已获授权的重定向 URI」必须与上面完全一致（含协议与路径）。
 # GOOGLE_CLIENT_ID = ""

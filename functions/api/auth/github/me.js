@@ -7,6 +7,7 @@
  */
 
 import { validateSession } from '../../../utils/auth/sessionManager.js';
+import { isSuperAdmin } from '../../../utils/auth/adminPolicy.js';
 
 export async function onRequestGet(context) {
     const { request, env } = context;
@@ -21,13 +22,16 @@ export async function onRequestGet(context) {
     const session = userResult.valid ? userResult.session : adminResult.session;
     const login = session.username || '';
 
+    // 管理员只认 adminPolicy 写死的账号，旧 admin 会话不算数
+    const isAdmin = adminResult.valid && isSuperAdmin(adminResult.session?.username, adminResult.session?.provider);
+
     return json({
         authenticated: true,
         login,
         name: session.name || '',
         avatar: session.avatar || '',
-        provider: session.provider || 'password',
-        admin: adminResult.valid,
+        provider: session.provider || 'github',
+        admin: isAdmin,
     });
 }
 

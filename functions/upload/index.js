@@ -17,6 +17,7 @@ import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { getDatabase } from '../utils/databaseAdapter.js';
 import { resolveUploadExpiry } from '../utils/fileExpiryService.js';
 import { checkFileSize } from '../utils/uploadSizeLimit.js';
+import { checkUserQuota } from '../utils/userQuota.js';
 import { resolveUserScope } from '../utils/auth/userScope.js';
 
 
@@ -67,6 +68,10 @@ export async function onRequest(context) {  // Contents of context object
         if (expiry.error) {
             return createResponse(expiry.error, { status: 400 });
         }
+        // 分块初始化只有 totalChunks、没有总大小，只能拦「配额已经用完」的用户，
+        // 避免白白传完几十个分块才在合并阶段失败。
+        const quotaError = await checkUserQuota(context, 0);
+        if (quotaError) return quotaError;
         return await initializeChunkedUpload(context);
     }
 
@@ -152,6 +157,9 @@ async function processFileUpload(context, formdata = null) {
     // 文件大小限制（默认 3MB，可通过环境变量 MAX_UPLOAD_SIZE_MB 调整）
     const sizeError = checkFileSize(file?.size, context.env);
     if (sizeError) return sizeError;
+    // 单用户总容量限制（默认 1GB，USER_QUOTA_MB 可调；管理员不限）
+    const quotaError = await checkUserQuota(context, file?.size);
+    if (quotaError) return quotaError;
     // 部分客户端（同步工具、脚本）不提供有效的 Content-Type，按扩展名兜底推断。
     // 否则图片会被记成 application/octet-stream，导致随机图类型过滤、尺寸提取、
     // 图片处理校验全部失效。

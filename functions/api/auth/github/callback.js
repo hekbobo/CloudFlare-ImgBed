@@ -5,13 +5,14 @@
  * 需要环境变量：
  *   GITHUB_CLIENT_ID        GitHub OAuth App 的 Client ID
  *   GITHUB_CLIENT_SECRET    GitHub OAuth App 的 Client Secret
- *   GITHUB_ALLOWED_USERS    允许登录的 GitHub 用户名，逗号分隔（必填，留空则拒绝所有人）
- *   GITHUB_ADMIN_USERS      可选，拥有管理后台权限的用户，逗号分隔；不填则默认等于 GITHUB_ALLOWED_USERS
+ *   GITHUB_ALLOWED_USERS    允许登录的 GitHub 用户名，逗号分隔；留空 = 不限制（任何人可登录）
+ *   管理员                写死在 utils/auth/adminPolicy.js（仅 GitHub 的 hekbobo），不再读环境变量
  *   GITHUB_REDIRECT_URI     可选，需与 OAuth App 中配置的回调地址一致
  */
 
 import { createSession } from '../../../utils/auth/sessionManager.js';
-import { getOrCreateUser, getBootstrapAdmin } from '../../../utils/userDirectory.js';
+import { getOrCreateUser } from '../../../utils/userDirectory.js';
+import { isSuperAdmin } from '../../../utils/auth/adminPolicy.js';
 
 export async function onRequestGet(context) {
     const { request, env } = context;
@@ -96,12 +97,9 @@ export async function onRequestGet(context) {
 
     if (!login) return fail('无法识别 GitHub 账号');
 
-    // 3. 白名单校验（留空 = 全部拒绝，避免误开放）
+    // 3. 白名单校验（未配置 = 不限制；配置了则严格校验）
     const allowed = parseList(env.GITHUB_ALLOWED_USERS);
-    if (allowed.length === 0) {
-        return fail('站点未配置 GITHUB_ALLOWED_USERS，已拒绝登录');
-    }
-    if (!allowed.includes(login)) {
+    if (allowed.length > 0 && !allowed.includes(login)) {
         return fail(`账号 ${login} 不在允许名单内`);
     }
 
@@ -119,14 +117,9 @@ export async function onRequestGet(context) {
     }
     if (!userRecord?.uid) return fail('无法分配用户 UID');
 
-    // 管理员名单：显式配置 GITHUB_ADMIN_USERS 优先；未配置时把最早的用户作为管理员（bootstrap），
-    // 其余登录用户一律按普通用户处理，否则「白名单即管理员」会让文件隔离形同虚设。
-    const adminList = parseList(env.GITHUB_ADMIN_USERS);
-    let effectiveAdmins = adminList;
-    if (effectiveAdmins.length === 0) {
-        const bootstrap = await getBootstrapAdmin(env);
-        effectiveAdmins = [bootstrap || login];
-    }
+    // 管理员身份写死在 adminPolicy.js：只有 GitHub 的 hekbobo 会额外拿到 admin 会话。
+    // 不再读 GITHUB_ADMIN_USERS，也不再走「最早注册账号自动接管」的 bootstrap。
+    const admin = isSuperAdmin(login, 'github');
 
     // 4. 建立会话（管理员额外发一枚 admin 会话，保证管理后台可用）
     //    昵称、头像、uid 存进会话，供左上角控件与上传路径使用
@@ -140,7 +133,7 @@ export async function onRequestGet(context) {
     try {
         const { cookie: userCookie } = await createSession(env, 'user', login, profile);
         headers.append('Set-Cookie', userCookie);
-        if (effectiveAdmins.includes(login)) {
+        if (admin) {
             const { cookie: adminCookie } = await createSession(env, 'admin', login, profile);
             headers.append('Set-Cookie', adminCookie);
         }

@@ -3,8 +3,8 @@
  *
  * GET: 用户目录 + 每人文件归属统计
  *      - users[]: settings 表 user@<login> 里的账号记录
- *      - isAdmin : 是否在 GITHUB_ADMIN_USERS 内（未配置时取最早登录的账号，与登录回调保持一致）
- *      - allowed : 是否在 GITHUB_ALLOWED_USERS 内；未配置白名单时为 null（无意义）
+ *      - isAdmin : 写死在 utils/auth/adminPolicy.js（仅 GitHub 的 hekbobo），不读环境变量
+ *      - allowed : 是否在 ALLOWED_USERS 白名单内；未配置白名单时为 null（表示不限制）
  *      - files / sizeMB / lastUpload: 按 metadata.Owner === uid 聚合索引
  *      - totals.orphan*: Owner 为空或指向已不存在 uid 的文件（历史遗留、uid 漂移）
  *
@@ -14,6 +14,8 @@
 import { listUserRecords } from '../../utils/userDirectory.js';
 import { readIndex } from '../../utils/indexManager.js';
 import { resolveUserScope, forbiddenResponse } from '../../utils/auth/userScope.js';
+import { getUserQuotaMB } from '../../utils/userQuota.js';
+import { isSuperAdmin, getAdminList } from '../../utils/auth/adminPolicy.js';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -27,6 +29,11 @@ function jsonResponse(payload, status = 200) {
         status,
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
+}
+
+/** 合并后去重，保持顺序 */
+function uniqueList(items) {
+    return Array.from(new Set(items.filter(Boolean)));
 }
 
 function parseList(value) {
@@ -56,14 +63,14 @@ export async function onRequest(context) {
     try {
         const records = await listUserRecords(context.env);
 
-        const adminList = parseList(context.env.GITHUB_ADMIN_USERS);
-        const allowedList = parseList(context.env.GITHUB_ALLOWED_USERS);
+        // 管理员写死在 adminPolicy.js（只有 GitHub 的 hekbobo），不读任何环境变量。
+        const effectiveAdmins = getAdminList();
 
-        // 管理员来源：显式配置优先；未配置时把最早注册的账号当作管理员（bootstrap）
-        const adminSource = adminList.length > 0 ? 'env' : 'bootstrap';
-        const effectiveAdmins = adminList.length > 0
-            ? adminList
-            : (records.length > 0 ? [records[0].login] : []);
+        // 白名单仍支持环境变量：留空 = 不限制登录
+        const allowedList = uniqueList([
+            ...parseList(context.env.GITHUB_ALLOWED_USERS),
+            ...parseList(context.env.GOOGLE_ALLOWED_USERS),
+        ]);
 
         const stats = new Map(); // uid -> { files, sizeMB, lastUpload }
         const orphans = { files: 0, sizeMB: 0, unknownOwner: 0 };
@@ -112,7 +119,7 @@ export async function onRequest(context) {
                 uid: record.uid,
                 provider: record.provider || 'github',
                 createdAt: record.createdAt || 0,
-                isAdmin: effectiveAdmins.includes(record.login),
+                isAdmin: isSuperAdmin(record.login, record.provider),
                 allowed: allowedList.length === 0 ? null : allowedList.includes(record.login),
                 files: usage.files,
                 sizeMB: Math.round(usage.sizeMB * 100) / 100,
@@ -143,10 +150,11 @@ export async function onRequest(context) {
             users,
             totals,
             config: {
-                adminSource,
+                adminSource: 'hardcoded',
                 admins: effectiveAdmins,
                 allowedUsers: allowedList,
                 allowedListEmpty: allowedList.length === 0,
+                quotaLimitMB: getUserQuotaMB(context.env) > 0 ? getUserQuotaMB(context.env) : null,
             },
         });
     } catch (error) {

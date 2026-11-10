@@ -341,7 +341,12 @@
         }
         var size = Number(data.totalSizeMB);
         var sizeText = isNaN(size) ? '0 MB' : size >= 1024 ? (size / 1024).toFixed(2) + ' GB' : size.toFixed(2) + ' MB';
-        chip.textContent = '已用 ' + sizeText + ' · ' + (data.totalCount || 0) + ' 个文件';
+        // 普通用户带配额上限；管理员返回全站统计，没有 quotaLimitMB
+        var limitMB = Number(data.quotaLimitMB);
+        var limitText = !isNaN(limitMB) && limitMB > 0
+          ? ' / ' + (limitMB >= 1024 ? (limitMB / 1024).toFixed(2) + ' GB' : limitMB.toFixed(2) + ' MB')
+          : '';
+        chip.textContent = '已用 ' + sizeText + limitText + ' · ' + (data.totalCount || 0) + ' 个文件';
         chip.hidden = false;
       })
       .catch(function () {

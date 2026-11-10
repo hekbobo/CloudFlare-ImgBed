@@ -5,8 +5,10 @@
  * 需要环境变量：
  *   GOOGLE_CLIENT_ID        Google OAuth 2.0 客户端 ID
  *   GOOGLE_CLIENT_SECRET    Google OAuth 2.0 客户端密钥
- *   GOOGLE_ALLOWED_USERS    允许登录的邮箱，逗号分隔（必填，留空则拒绝所有人）
- *   GOOGLE_ADMIN_USERS      可选，拥有管理后台权限的邮箱；不填则退回到「最早注册的账号」
+ *   GOOGLE_ALLOWED_USERS    允许登录的邮箱，逗号分隔；留空 = 不限制（任何 Google 账号可登录）
+ *
+ * 管理员身份写死在 utils/auth/adminPolicy.js（仅 GitHub 的 hekbobo）。
+ * Google 登录拿不到 admin 会话，即使用 GOOGLE_ADMIN_USERS 配置了邮箱也不会生效。
  *   GOOGLE_REDIRECT_URI     可选，需与 Google 控制台里配置的重定向地址一致
  *
  * 账号标识用邮箱（login = email），与 GitHub 用户名共用同一套 user@<login> 目录，
@@ -104,7 +106,6 @@ export async function onRequestGet(context) {
         avatar: picture,
         provider: 'google',
         allowedList: parseList(env.GOOGLE_ALLOWED_USERS),
-        adminList: parseList(env.GOOGLE_ADMIN_USERS),
         allowedEnvName: 'GOOGLE_ALLOWED_USERS',
         stateCookieName: 'g_oauth_state',
         secure,

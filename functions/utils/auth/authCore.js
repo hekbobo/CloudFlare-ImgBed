@@ -8,6 +8,7 @@ import { validateApiToken } from './tokenValidator.js';
 import { getDatabase } from '../databaseAdapter.js';
 import { verifyPassword } from './passwordHash.js';
 import { validateSession } from './sessionManager.js';
+import { isSuperAdmin } from './adminPolicy.js';
 
 /**
  * 认证范围常量
@@ -37,7 +38,8 @@ async function checkAdmin({ env, request, adminConfigured }) {
     }
 
     const session = await validateSession(env, request, 'admin');
-    if (session.valid) {
+    // 只认 adminPolicy 写死的账号：库里可能残留改规则前签发的 admin 会话
+    if (session.valid && isSuperAdmin(session.session?.username, session.session?.provider)) {
         return AUTHORIZED('admin');
     }
 
@@ -54,7 +56,7 @@ async function checkAdmin({ env, request, adminConfigured }) {
 async function checkUser({ env, request, url, authCodeConfigured, userAuthCode }) {
     // admin session（管理员身份也可访问用户资源）
     const adminSession = await validateSession(env, request, 'admin');
-    if (adminSession.valid) {
+    if (adminSession.valid && isSuperAdmin(adminSession.session?.username, adminSession.session?.provider)) {
         return AUTHORIZED('admin');
     }
 

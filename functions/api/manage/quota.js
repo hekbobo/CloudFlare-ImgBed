@@ -8,6 +8,7 @@
 
 import { getIndexMeta, rebuildIndex, readIndex } from '../../utils/indexManager.js';
 import { resolveUserScope, forbiddenResponse } from '../../utils/auth/userScope.js';
+import { getUserQuotaMB } from '../../utils/userQuota.js';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -81,6 +82,7 @@ async function getQuotaStats(context) {
  */
 async function getUserQuotaStats(context, scope) {
     if (!scope.uid) {
+        const limitMB = getUserQuotaMB(context.env);
         return jsonResponse({
             success: true,
             scope: 'user',
@@ -88,6 +90,8 @@ async function getUserQuotaStats(context, scope) {
             quotaStats: {},
             totalSizeMB: 0,
             totalCount: 0,
+            quotaLimitMB: limitMB > 0 ? limitMB : null,
+            remainingMB: limitMB > 0 ? limitMB : null,
             lastUpdated: null
         });
     }
@@ -125,13 +129,19 @@ async function getUserQuotaStats(context, scope) {
         channelStats[key].usedMB = Math.round(channelStats[key].usedMB * 100) / 100;
     }
 
+    const limitMB = getUserQuotaMB(context.env);
+    const usedMB = Math.round(totalSizeMB * 100) / 100;
+
     return jsonResponse({
         success: true,
         scope: 'user',
         uid: scope.uid,
         quotaStats: channelStats,
-        totalSizeMB: Math.round(totalSizeMB * 100) / 100,
+        totalSizeMB: usedMB,
         totalCount: files.length,
+        // limitMB <= 0 表示不限制，此时两个字段为 null
+        quotaLimitMB: limitMB > 0 ? limitMB : null,
+        remainingMB: limitMB > 0 ? Math.max(0, Math.round((limitMB - usedMB) * 100) / 100) : null,
         lastUpdated: result.indexLastUpdated || null
     });
 }

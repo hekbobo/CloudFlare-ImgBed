@@ -17,6 +17,7 @@ import { userAuthCheck, UnauthorizedResponse } from '../../utils/auth/userAuth.j
 import { buildUniqueFileId, getUploadIp, isBlockedUploadIp, createResponse, checkUploadFormat } from '../uploadTools.js';
 import { resolveUploadExpiry } from '../../utils/fileExpiryService.js';
 import { checkFileSize } from '../../utils/uploadSizeLimit.js';
+import { checkUserQuota } from '../../utils/userQuota.js';
 import { resolveUserScope } from '../../utils/auth/userScope.js';
 
 export async function onRequestPost(context) {
@@ -58,6 +59,10 @@ export async function onRequestPost(context) {
         // 文件大小限制（默认 3MB），在签发直传地址前拦截
         const sizeError = checkFileSize(fileSize, env);
         if (sizeError) return sizeError;
+
+        // 单用户总容量限制（默认 1GB），直传绕不过 Worker，同样在这里拦
+        const quotaError = await checkUserQuota(context, fileSize);
+        if (quotaError) return quotaError;
 
         // 直传前校验有效期参数，避免文件已传到 HuggingFace 才在提交时被拒绝
         const expiry = await resolveUploadExpiry(context);

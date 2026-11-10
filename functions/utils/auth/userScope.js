@@ -16,6 +16,7 @@
 
 import { validateSession, patchSession } from './sessionManager.js';
 import { getOrCreateUser } from '../userDirectory.js';
+import { isSuperAdmin } from './adminPolicy.js';
 
 /**
  * @returns {Promise<null | {isAdmin: boolean, login: string, uid: string, name: string}>}
@@ -29,7 +30,9 @@ export async function resolveUserScope(context) {
     let isAdmin = false;
 
     const adminResult = await validateSession(env, request, 'admin');
-    if (adminResult?.valid) {
+    // 二次校验身份：库里可能残留改规则之前签发的 admin 会话（如早期配置过 GOOGLE_ADMIN_USERS），
+    // 只认 adminPolicy 写死的账号，其余一律按普通用户处理，不必等旧 Cookie 自然过期。
+    if (adminResult?.valid && isSuperAdmin(adminResult.session?.username, adminResult.session?.provider)) {
         session = adminResult.session;
         isAdmin = true;
     } else {

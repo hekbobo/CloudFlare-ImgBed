@@ -536,9 +536,7 @@
 
     $('u-total').textContent = totals.users || 0;
     $('u-admins').textContent = totals.admins || 0;
-    $('u-admins-foot').textContent = config.adminSource === 'bootstrap'
-      ? '最早注册的账号'
-      : '来源：GITHUB_ADMIN_USERS';
+    $('u-admins-foot').textContent = '写死：GitHub @hekbobo';
 
     $('u-files').textContent = indexed ? (totals.files || 0) : '—';
     $('u-files-foot').textContent = indexed ? sizeText(totals.sizeMB) : '索引不可用';
@@ -550,13 +548,17 @@
 
     var admins = config.admins || [];
     $('u-admin-list').textContent = admins.length
-      ? admins.join('、') + (config.adminSource === 'bootstrap' ? '（未配置，自动接管）' : '')
+      ? 'GitHub @' + admins.join('、@') + '（代码写死）'
       : '—';
 
     var allowed = config.allowedUsers || [];
     $('u-allow-list').textContent = config.allowedListEmpty
-      ? '未配置（此时任何账号都无法登录）'
+      ? '未配置 · 任何账号都可登录'
       : allowed.join('、');
+
+    $('u-quota-limit').textContent = config.quotaLimitMB
+      ? humanSize(config.quotaLimitMB * 1024 * 1024) + ' / 人'
+      : '不限制';
 
     $('u-updated').textContent = '刷新于 ' + humanTime(Date.now());
 
