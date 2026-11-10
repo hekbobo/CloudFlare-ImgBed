@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#fbfbfc" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0b0b0d" media="(prefers-color-scheme: dark)">
+<title>Sanyue ImgHub · 上传</title>
+<script>
+  // 首帧前定主题，避免闪白
+  (function () {
+    try {
+      var saved = localStorage.getItem('imgbed-theme');
+      if (saved === 'light' || saved === 'dark') {
+        document.documentElement.setAttribute('data-theme', saved);
+      }
+    } catch (e) {}
+  })();
+</script>
+<link rel="stylesheet" href="/ui/system.css">
+<link rel="stylesheet" href="/web/app.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="/">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="4.5" width="18" height="15" rx="2.5"></rect>
+          <circle cx="8.6" cy="9.6" r="1.5"></circle>
+          <path d="M3.5 17.2 9 12l3.4 3.2M13.2 13.6 16 11l4.5 4.4"></path>
+        </svg>
+      </span>
+      <span class="brand-name">Sanyue<b>ImgHub</b></span>
+    </a>
+
+    <nav class="nav-seg" aria-label="主导航">
+      <a href="/" data-nav="upload">上传</a>
+      <a href="/history" data-nav="history">历史文件</a>
+    </nav>
+
+    <div class="topbar-right">
+      <span class="quota-chip" id="quota-chip" hidden></span>
+
+      <a class="btn btn--sm btn--ghost topbar-admin" id="admin-link" href="/admin" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="3" width="7.5" height="7.5" rx="1.6"></rect>
+          <rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6"></rect>
+          <rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6"></rect>
+          <rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6"></rect>
+        </svg>
+        <span>后台</span>
+      </a>
+
+      <button class="btn btn--sm btn--icon btn--ghost" id="theme-btn" type="button" title="切换主题" aria-label="切换主题">
+        <svg class="ico-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="4"></circle>
+          <path d="M12 2.5v2M12 19.5v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M2.5 12h2M19.5 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"></path>
+        </svg>
+        <svg class="ico-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M20 13.4A8.2 8.2 0 0 1 10.6 4a8.4 8.4 0 1 0 9.4 9.4Z"></path>
+        </svg>
+      </button>
+
+      <button class="user-btn" id="user-btn" type="button" hidden aria-haspopup="menu" aria-expanded="false">
+        <span class="avatar" id="avatar-wrap">
+          <img id="user-avatar" alt="" hidden>
+          <span id="user-initial"></span>
+        </span>
+      </button>
+      <a class="btn btn--sm btn--primary" id="login-link" href="/api/auth/github/login" hidden>登录</a>
+    </div>
+  </div>
+</header>
+
+<div class="menu-pop" id="user-menu" role="menu" hidden>
+  <div class="menu-head">
+    <span class="avatar avatar--lg" id="menu-avatar-wrap">
+      <img id="menu-avatar" alt="" hidden>
+      <span id="menu-initial"></span>
+    </span>
+    <span class="menu-id">
+      <b id="menu-name"></b>
+      <small id="menu-login"></small>
+    </span>
+  </div>
+  <div class="menu-sep"></div>
+  <a class="menu-item" href="/admin" id="menu-admin" hidden role="menuitem">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.6"></rect><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6"></rect><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6"></rect><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6"></rect></svg>
+    管理后台
+  </a>
+  <button class="menu-item menu-item--danger" id="logout-btn" type="button" role="menuitem">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4h2.5A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5H15"></path><path d="M10 8l-4 4 4 4M6 12h9"></path></svg>
+    退出登录
+  </button>
+</div>
+
+<main class="page">
+
+  <!-- ==================== 上传 ==================== -->
+  <section class="view" id="view-upload">
+    <div class="page-head">
+      <div class="page-head-text">
+        <h1>上传文件</h1>
+        <p class="page-sub">拖拽文件、点击选择，或按 <kbd class="kbd">Ctrl</kbd> <kbd class="kbd">V</kbd> 粘贴剪贴板里的内容</p>
+      </div>
+    </div>
+
+    <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="选择或拖拽文件上传">
+      <span class="dz-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 16V4.5"></path>
+          <path d="m7.5 9 4.5-4.5L16.5 9"></path>
+          <path d="M4 15v3.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V15"></path>
+        </svg>
+      </span>
+      <span class="dz-title">拖拽文件到此处</span>
+      <span class="dz-sub">或<span class="dz-link">点击选择文件</span></span>
+      <span class="dz-meta">单文件最大 <b id="max-size">3</b> MB · 图片 / 视频 / 音频 / 文档</span>
+      <input type="file" id="file-input" multiple hidden>
+    </div>
+
+    <div class="upload-tips">
+      <div class="tip">
+        <span class="tip-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="19" height="12" rx="2.2"></rect><path d="M6.5 10h.01M10 10h.01M13.5 10h.01M17 10h.01M7 14h10"></path></svg>
+        </span>
+        <span class="tip-text"><b>粘贴即传</b><span>Ctrl + V 直接上传剪贴板里的图片</span></span>
+      </div>
+      <div class="tip">
+        <span class="tip-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13.5a4 4 0 0 0 5.7 0l2.8-2.8a4 4 0 1 0-5.7-5.7L11.5 6.3"></path><path d="M14 10.5a4 4 0 0 0-5.7 0L5.5 13.3a4 4 0 1 0 5.7 5.7l1.3-1.3"></path></svg>
+        </span>
+        <span class="tip-text"><b>直链即取</b><span>上传完成自动生成链接，一键复制</span></span>
+      </div>
+      <div class="tip">
+        <span class="tip-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 7.5A2 2 0 0 1 5.5 5.5h4l2 2.5h6.5a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2h-12a2 2 0 0 1-2-2z"></path></svg>
+        </span>
+        <span class="tip-text"><b>历史可查</b><span>已上传的文件都在「历史文件」里管理</span></span>
+      </div>
+    </div>
+
+    <div class="queue" id="queue" hidden></div>
+
+    <section class="results" id="results-card" hidden>
+      <div class="section-head">
+        <h2>本次上传 <span class="badge badge--accent" id="results-count">0</span></h2>
+        <button class="btn btn--sm" id="copy-all" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M15 5.5A1.5 1.5 0 0 0 13.5 4h-8A1.5 1.5 0 0 0 4 5.5v8A1.5 1.5 0 0 0 5.5 15"></path></svg>
+          复制全部
+        </button>
+      </div>
+      <div class="grid" id="results-grid"></div>
+    </section>
+  </section>
+
+  <!-- ==================== 历史文件 ==================== -->
+  <section class="view" id="view-history" hidden>
+    <div class="page-head">
+      <div class="page-head-text">
+        <h1>历史文件</h1>
+        <p class="page-sub" id="history-summary">正在读取…</p>
+      </div>
+      <button class="btn btn--sm btn--icon" id="refresh-btn" type="button" title="刷新" aria-label="刷新">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7"></path><path d="M20 4.5V11h-6"></path></svg>
+      </button>
+    </div>
+
+    <div class="toolbar">
+      <div class="input-wrap toolbar-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"></circle><path d="m16 16 4 4"></path></svg>
+        <input class="input" id="search-input" type="search" placeholder="搜索文件名…" autocomplete="off">
+      </div>
+
+      <div class="segmented" id="type-chips" role="group" aria-label="按类型筛选">
+        <button class="is-active" data-type="" type="button">全部</button>
+        <button data-type="image" type="button">图片</button>
+        <button data-type="video" type="button">视频</button>
+        <button data-type="audio" type="button">音频</button>
+        <button data-type="other" type="button">其他</button>
+      </div>
+
+      <span class="u-spacer"></span>
+
+      <div class="segmented seg-icon" id="view-switch" role="group" aria-label="视图">
+        <button class="is-active" data-view="grid" type="button" title="网格视图" aria-label="网格视图">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="7" height="7" rx="1.4"></rect><rect x="13.5" y="3.5" width="7" height="7" rx="1.4"></rect><rect x="3.5" y="13.5" width="7" height="7" rx="1.4"></rect><rect x="13.5" y="13.5" width="7" height="7" rx="1.4"></rect></svg>
+        </button>
+        <button data-view="list" type="button" title="列表视图" aria-label="列表视图">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5h16M4 12h16M4 17.5h16"></path></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="grid" id="history-grid"></div>
+
+    <div class="panel list-panel" id="history-list" hidden>
+      <table class="table">
+        <thead>
+          <tr>
+            <th class="col-check"><input type="checkbox" class="check" id="select-all" aria-label="全选"></th>
+            <th>文件</th>
+            <th class="col-type">类型</th>
+            <th class="col-size">大小</th>
+            <th class="col-time">上传时间</th>
+            <th class="col-actions"></th>
+          </tr>
+        </thead>
+        <tbody id="history-tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="empty-state" id="history-empty" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 7.5A2 2 0 0 1 5.5 5.5h4l2 2.5h6.5a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2h-12a2 2 0 0 1-2-2z"></path></svg>
+      <strong id="history-empty-title">还没有文件</strong>
+      <span id="history-empty-sub">上传第一个文件后，它会出现在这里</span>
+    </div>
+
+    <div class="more-row">
+      <span class="spinner" id="history-loading" hidden></span>
+      <button class="btn btn--sm" id="load-more" type="button" hidden>加载更多</button>
+    </div>
+  </section>
+</main>
+
+<div class="batchbar" id="batchbar" hidden>
+  <span class="batchbar-count"><b id="batch-count">0</b> 项已选</span>
+  <span class="batchbar-sep"></span>
+  <button class="btn-text" id="batch-clear" type="button">取消</button>
+  <button class="btn btn--sm batchbar-danger" id="batch-delete" type="button">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9.5 7V5.2A1.2 1.2 0 0 1 10.7 4h2.6a1.2 1.2 0 0 1 1.2 1.2V7M6.5 7l.8 11.3A1.7 1.7 0 0 0 9 20h6a1.7 1.7 0 0 0 1.7-1.7L17.5 7"></path></svg>
+    删除
+  </button>
+</div>
+
+<div class="lightbox" id="lightbox" hidden>
+  <button class="lightbox-close" id="lightbox-close" type="button" aria-label="关闭">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+  </button>
+  <img id="lightbox-img" alt="">
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="/web/app.js"></script>
+</body>
+</html>

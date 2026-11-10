@@ -1,4 +1,4 @@
-.wrangler/*
+.wrangler/
 data/*
 node_modules
 /wrangler.toml

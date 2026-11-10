@@ -213,6 +213,7 @@ ${imports}
 import { maybeServeFromCache } from './workerCache.js';
 import { runExpiryCleanupJob } from '../../functions/utils/fileExpiryService.js';
 import { githubLoginGate } from '../../functions/utils/auth/githubGate.js';
+import { handlePageRoute } from '../../functions/utils/webRoutes.js';
 
 // ==================== 自动生成的路由表 ====================
 
@@ -293,6 +294,10 @@ export default {
         // 仅在配置了 GITHUB_CLIENT_ID 时生效，未配置则完全不影响原有行为
         const gateResponse = await githubLoginGate(request, env);
         if (gateResponse) return gateResponse;
+
+        // 页面分区：/ 与 /history 走 Web 应用，/admin/* 走管理后台
+        const pageResponse = await handlePageRoute(request, env, url);
+        if (pageResponse) return pageResponse;
 
         const matched = matchRoute(pathname);
 

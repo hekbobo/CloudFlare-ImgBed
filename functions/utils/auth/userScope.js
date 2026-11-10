@@ -6,9 +6,15 @@
  * - 普通用户只能列出 / 操作自己 uid 前缀的文件；
  * - 管理员（admin 会话）可以看全部、操作全部；
  * - 没有 uid 前缀的历史文件只归管理员，普通用户看不到也动不了。
+ *
+ * uid 的唯一权威来源是用户目录（settings 表的 user@<login>）。
+ * 会话 Cookie 里也存了一份 uid，但它只是「上次登录时的快照」：
+ * 目录里的 uid 被改写/迁移过、或者会话是在旧版本创建的，快照就会过期。
+ * 一旦以过期快照为准，新上传的文件会落到错误前缀下，用户在自己的列表里反而看不到，
+ * 所以这里一律以目录为准，会话 uid 只在目录不可用时兜底，并顺手把会话纠正回来。
  */
 
-import { validateSession } from './sessionManager.js';
+import { validateSession, patchSession } from './sessionManager.js';
 import { getOrCreateUser } from '../userDirectory.js';
 
 /**
@@ -34,16 +40,31 @@ export async function resolveUserScope(context) {
     if (!session) return null;
 
     const login = String(session.username || '').toLowerCase();
-    let uid = session.uid || '';
+    const sessionUid = String(session.uid || '');
 
-    // 老会话没有 uid（是在引入用户目录之前创建的），这时按 login 补一次
-    if (!uid && login) {
-        const record = await getOrCreateUser(env, login, {
-            name: session.name,
-            avatar: session.avatar,
-            provider: session.provider,
-        });
-        uid = record?.uid || '';
+    // 以用户目录为准；目录没有这个人时顺手创建（首次登录兜底）
+    let uid = '';
+    if (login) {
+        try {
+            const record = await getOrCreateUser(env, login, {
+                name: session.name,
+                avatar: session.avatar,
+                provider: session.provider,
+            });
+            uid = String(record?.uid || '');
+        } catch (error) {
+            console.error('[userScope] 读取用户目录失败，临时退回会话 uid:', error?.message || error);
+        }
+    }
+    if (!uid) uid = sessionUid;
+
+    // 会话里的快照过期时纠正一次，之后就不会再走这个分支
+    if (uid && sessionUid && uid !== sessionUid && session.authType) {
+        try {
+            await patchSession(env, request, session.authType, { uid });
+        } catch (error) {
+            console.error('[userScope] 纠正会话 uid 失败:', error?.message || error);
+        }
     }
 
     return {

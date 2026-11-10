@@ -15,6 +15,7 @@ import { SqliteD1 } from './sqliteD1.js';
 import { LocalR2Storage } from './r2Storage.js';
 import { dockerImageProcessor } from './imageProcessor.js';
 import { startExpiryCleanupTimer } from './expiryCleanup.js';
+import { isPageNavigation, LEGACY_PAGE_REDIRECTS } from '../../functions/utils/webRoutes.js';
 
 const NativeResponse = globalThis.Response;
 
@@ -385,14 +386,54 @@ app.use('/*', serveStatic({
     rewriteRequestPath: (path) => path,
 }));
 
-// 默认返回 index.html（SPA 支持）
-app.get('*', async (c) => {
-    const indexPath = join(ROOT_DIR, 'frontend-dist', 'index.html');
-    if (existsSync(indexPath)) {
-        const content = readFileSync(indexPath, 'utf8');
-        return c.html(content);
+// ==================== 页面分区（与 Worker / Pages 侧保持一致） ====================
+// 用户侧 / 与 /history 走 web/index.html，/admin/* 走 admin.html。
+// Node 部署主要用于本地与 Docker 调试，因此这里做的是简化实现，
+// 管理员校验交给 SPA 自己处理。
+const WEB_PAGE_FILE = join(ROOT_DIR, 'frontend-dist', 'web', 'index.html');
+const ADMIN_PAGE_FILE = join(ROOT_DIR, 'frontend-dist', 'admin-app', 'index.html');
+const ADMIN_SPA_FILE = join(ROOT_DIR, 'frontend-dist', 'admin-spa.html');
+
+function serveHtmlFile(c, filePath) {
+    if (!existsSync(filePath)) {
+        return c.text('Not Found', 404);
     }
-    return c.text('Not Found', 404);
+    return c.html(readFileSync(filePath, 'utf8'));
+}
+
+app.get('*', async (c, next) => {
+    const url = new URL(c.req.url);
+    const pathname = url.pathname;
+
+    if (!isPageNavigation(c.req.raw, pathname)) {
+        return next();
+    }
+
+    const legacyTarget = LEGACY_PAGE_REDIRECTS[pathname];
+    if (legacyTarget) {
+        return c.redirect(legacyTarget + url.search, 301);
+    }
+    if (pathname === '/browse' || pathname.startsWith('/browse/')) {
+        return c.redirect('/admin/advanced' + pathname + url.search, 301);
+    }
+    if (pathname === '/' || pathname === '/history') {
+        return serveHtmlFile(c, WEB_PAGE_FILE);
+    }
+    // 高级设置：原 SPA，独立基路径
+    if (pathname === '/admin/advanced' || pathname.startsWith('/admin/advanced/')) {
+        return serveHtmlFile(c, ADMIN_SPA_FILE);
+    }
+    // 新管理后台：单页应用，前端自行分流
+    if (pathname === '/admin' || pathname.startsWith('/admin/')) {
+        return serveHtmlFile(c, ADMIN_PAGE_FILE);
+    }
+
+    return next();
+});
+
+// 默认返回 Web 应用（SPA 支持）
+app.get('*', async (c) => {
+    return serveHtmlFile(c, WEB_PAGE_FILE);
 });
 
 // ==================== 启动服务器 ====================

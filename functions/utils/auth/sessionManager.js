@@ -92,6 +92,41 @@ export async function validateSession(env, request, authType) {
 }
 
 /**
+ * 就地修正会话内容（例如用户目录里的 uid 变更后同步会话）
+ * 保留原有 expiresAt 与剩余 TTL，不延长会话寿命
+ * @param {Object} env - 环境变量
+ * @param {Request} request - 请求对象
+ * @param {string} authType - 认证类型 ('admin' | 'user')
+ * @param {Object} patch - 要覆盖的字段
+ * @returns {Promise<boolean>} 是否写回成功
+ */
+export async function patchSession(env, request, authType, patch) {
+    const cookieName = COOKIE_NAMES[authType] || 'session';
+    const token = getCookieValue(request, cookieName);
+    if (!token || !patch) return false;
+
+    const db = getDatabase(env);
+    const key = `${SESSION_PREFIX}${token}`;
+    const raw = await db.get(key);
+    if (!raw) return false;
+
+    let session;
+    try {
+        session = JSON.parse(raw);
+    } catch {
+        return false;
+    }
+
+    const next = { ...session, ...patch };
+    // 剩余寿命不足一分钟就不再写回，避免变相续期
+    const ttl = Math.floor((Number(next.expiresAt || 0) - Date.now()) / 1000);
+    if (!Number.isFinite(ttl) || ttl < 60) return false;
+
+    await db.put(key, JSON.stringify(next), { expirationTtl: ttl });
+    return true;
+}
+
+/**
  * 验证任意有效会话（不限 authType，用于 sessionCheck 接口）
  * @param {Object} env - 环境变量
  * @param {Request} request - 请求对象

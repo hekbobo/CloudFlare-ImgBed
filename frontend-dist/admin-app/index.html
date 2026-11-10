@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Sanyue ImgHub · 管理后台</title>
+<script>
+  (function () {
+    try {
+      var saved = localStorage.getItem('imgbed-theme');
+      if (saved === 'light' || saved === 'dark') {
+        document.documentElement.setAttribute('data-theme', saved);
+      }
+    } catch (e) {}
+  })();
+</script>
+<link rel="stylesheet" href="/ui/system.css">
+<link rel="stylesheet" href="/admin-app/admin.css">
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- ==================== 侧边栏 ==================== -->
+  <aside class="sidebar">
+    <a class="side-brand" href="/admin" data-link="overview">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="4.5" width="18" height="15" rx="2.5"></rect>
+          <circle cx="8.6" cy="9.6" r="1.5"></circle>
+          <path d="M3.5 17.2 9 12l3.4 3.2M13.2 13.6 16 11l4.5 4.4"></path>
+        </svg>
+      </span>
+      <span class="brand-name">Sanyue<b>Admin</b></span>
+    </a>
+
+    <nav class="side-nav" aria-label="后台导航">
+      <div class="side-label">工作区</div>
+      <a class="side-item" href="/admin" data-page="overview">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="7" height="7" rx="1.6"></rect><rect x="13.5" y="3.5" width="7" height="7" rx="1.6"></rect><rect x="3.5" y="13.5" width="7" height="7" rx="1.6"></rect><rect x="13.5" y="13.5" width="7" height="7" rx="1.6"></rect></svg>
+        概览
+      </a>
+      <a class="side-item" href="/admin/files" data-page="files">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 7.5A2 2 0 0 1 5.5 5.5h4l2 2.5h6.5a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2h-12a2 2 0 0 1-2-2z"></path></svg>
+        文件管理
+        <span class="side-count" id="side-count" hidden></span>
+      </a>
+      <a class="side-item" href="/admin/upload" data-page="upload">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16.5V4"></path><path d="m7.5 8.5 4.5-4.5 4.5 4.5"></path><path d="M4 15.5V18A2 2 0 0 0 6 20h12a2 2 0 0 0 2-2v-2.5"></path></svg>
+        上传
+      </a>
+
+      <div class="side-label">系统</div>
+      <a class="side-item" href="/admin/settings" data-page="settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.6 1.6 0 0 0 .32 1.77l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.6 1.6 0 0 0-1.77-.32 1.6 1.6 0 0 0-.97 1.46V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 9.1 19.4a1.6 1.6 0 0 0-1.77.32l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.6 1.6 0 0 0 4.6 15a1.6 1.6 0 0 0-1.46-.97H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 9.1a1.6 1.6 0 0 0-.32-1.77l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.6 1.6 0 0 0 9 4.6h.1A1.6 1.6 0 0 0 10 3.14V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 .97 1.46 1.6 1.6 0 0 0 1.77-.32l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.6 1.6 0 0 0 19.4 9v.1a1.6 1.6 0 0 0 1.46.97H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.46.97z"></path></svg>
+        设置
+      </a>
+      <a class="side-item" id="advanced-link" href="/admin/advanced" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6"></path><path d="M20 4 11 13"></path><path d="M18.5 14.5v4A1.5 1.5 0 0 1 17 20H5.5A1.5 1.5 0 0 1 4 18.5V7A1.5 1.5 0 0 1 5.5 5.5h4"></path></svg>
+        高级设置
+      </a>
+    </nav>
+
+    <div class="side-foot">
+      <div class="side-user">
+        <span class="avatar" id="side-avatar">
+          <img id="side-avatar-img" alt="" hidden>
+          <span id="side-avatar-initial">·</span>
+        </span>
+        <span class="side-user-id">
+          <b id="side-user-name">—</b>
+          <small id="side-user-login"></small>
+        </span>
+        <button class="btn btn--sm btn--icon btn--ghost" id="logout-btn" type="button" title="退出登录" aria-label="退出登录">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4h2.5A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5H15"></path><path d="M10 8l-4 4 4 4M6 12h9"></path></svg>
+        </button>
+      </div>
+      <div class="side-utils">
+        <a class="btn btn--sm btn--ghost" href="/">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4H5.5A1.5 1.5 0 0 0 4 5.5v13A1.5 1.5 0 0 0 5.5 20H10"></path><path d="M14 8l4 4-4 4M18 12H8"></path></svg>
+          返回前台
+        </a>
+        <button class="btn btn--sm btn--icon btn--ghost" id="theme-btn" type="button" title="切换主题" aria-label="切换主题">
+          <svg class="ico-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2.5v2M12 19.5v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M2.5 12h2M19.5 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"></path></svg>
+          <svg class="ico-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13.4A8.2 8.2 0 0 1 10.6 4a8.4 8.4 0 1 0 9.4 9.4Z"></path></svg>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ==================== 主区 ==================== -->
+  <main class="main">
+    <header class="main-head">
+      <div class="main-head-text">
+        <h1 id="page-title">概览</h1>
+        <p class="page-sub" id="page-desc">站点存储与最近上传</p>
+      </div>
+      <div class="main-actions" id="page-actions"></div>
+    </header>
+
+    <div class="main-body">
+
+      <!-- ---------------- 概览 ---------------- -->
+      <section class="view" data-view="overview">
+        <div class="stats" id="stats">
+          <div class="stat">
+            <span class="stat-label">文件总数</span>
+            <span class="stat-value" id="stat-count">—</span>
+            <span class="stat-foot" id="stat-count-foot">全站</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">已用容量</span>
+            <span class="stat-value" id="stat-size">—</span>
+            <span class="stat-foot" id="stat-size-foot">R2 存储</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">最近上传</span>
+            <span class="stat-value stat-value--sm" id="stat-latest">—</span>
+            <span class="stat-foot" id="stat-latest-foot">暂无记录</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">当前账号</span>
+            <span class="stat-value stat-value--sm" id="stat-role">—</span>
+            <span class="stat-foot" id="stat-role-foot">管理员</span>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h2>最近上传</h2>
+            <a class="btn btn--sm btn--ghost" href="/admin/files" data-link="files">查看全部</a>
+          </div>
+          <div class="panel-body panel-body--flush">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>文件</th>
+                  <th class="col-type">类型</th>
+                  <th class="col-size">大小</th>
+                  <th class="col-time">上传时间</th>
+                  <th class="col-actions"></th>
+                </tr>
+              </thead>
+              <tbody id="recent-tbody"></tbody>
+            </table>
+            <div class="empty-state" id="recent-empty" hidden>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 7.5A2 2 0 0 1 5.5 5.5h4l2 2.5h6.5a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2h-12a2 2 0 0 1-2-2z"></path></svg>
+              <strong>还没有文件</strong>
+              <span>上传第一个文件后，这里会显示最近记录</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------------- 文件管理 ---------------- -->
+      <section class="view" data-view="files" hidden>
+        <div class="toolbar">
+          <div class="input-wrap toolbar-search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"></circle><path d="m16 16 4 4"></path></svg>
+            <input class="input" id="search-input" type="search" placeholder="搜索文件名…" autocomplete="off">
+          </div>
+
+          <div class="segmented" id="type-chips" role="group" aria-label="按类型筛选">
+            <button class="is-active" data-type="" type="button">全部</button>
+            <button data-type="image" type="button">图片</button>
+            <button data-type="video" type="button">视频</button>
+            <button data-type="audio" type="button">音频</button>
+            <button data-type="other" type="button">其他</button>
+          </div>
+
+          <span class="u-spacer"></span>
+
+          <button class="btn btn--sm btn--danger-quiet" id="bulk-delete" type="button" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9.5 7V5.2A1.2 1.2 0 0 1 10.7 4h2.6a1.2 1.2 0 0 1 1.2 1.2V7M6.5 7l.8 11.3A1.7 1.7 0 0 0 9 20h6a1.7 1.7 0 0 0 1.7-1.7L17.5 7"></path></svg>
+            删除选中 <span id="bulk-count">0</span>
+          </button>
+          <button class="btn btn--sm btn--icon" id="refresh-btn" type="button" title="刷新" aria-label="刷新">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7"></path><path d="M20 4.5V11h-6"></path></svg>
+          </button>
+        </div>
+
+        <div class="panel">
+          <table class="table">
+            <thead>
+              <tr>
+                <th class="col-check"><input type="checkbox" class="check" id="select-all" aria-label="全选本页"></th>
+                <th>文件</th>
+                <th class="col-type">类型</th>
+                <th class="col-size">大小</th>
+                <th class="col-time">上传时间</th>
+                <th class="col-actions"></th>
+              </tr>
+            </thead>
+            <tbody id="files-tbody"></tbody>
+          </table>
+          <div class="empty-state" id="files-empty" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 7.5A2 2 0 0 1 5.5 5.5h4l2 2.5h6.5a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2h-12a2 2 0 0 1-2-2z"></path></svg>
+            <strong id="files-empty-title">还没有文件</strong>
+            <span id="files-empty-sub">上传第一个文件后，它会出现在这里</span>
+          </div>
+          <div class="pager" id="pager" hidden>
+            <span class="pager-info" id="pager-info"></span>
+            <div class="u-row">
+              <button class="btn btn--sm" id="prev-btn" type="button">上一页</button>
+              <button class="btn btn--sm" id="next-btn" type="button">下一页</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------------- 上传 ---------------- -->
+      <section class="view" data-view="upload" hidden>
+        <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="选择或拖拽文件上传">
+          <span class="dz-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 16V4.5"></path><path d="m7.5 9 4.5-4.5L16.5 9"></path>
+              <path d="M4 15v3.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V15"></path>
+            </svg>
+          </span>
+          <span class="dz-title">拖拽文件到此处</span>
+          <span class="dz-sub">或<span class="dz-link">点击选择文件</span></span>
+          <span class="dz-meta">单文件最大 <b id="max-size">3</b> MB · <span id="channel-label">Cloudflare R2</span></span>
+          <input type="file" id="file-input" multiple hidden>
+        </div>
+
+        <div class="queue" id="queue" hidden></div>
+
+        <div class="panel results" id="results-card" hidden>
+          <div class="panel-head">
+            <h2>本次上传 <span class="badge badge--accent" id="results-count">0</span></h2>
+            <button class="btn btn--sm" id="copy-all" type="button">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M15 5.5A1.5 1.5 0 0 0 13.5 4h-8A1.5 1.5 0 0 0 4 5.5v8A1.5 1.5 0 0 0 5.5 15"></path></svg>
+              复制全部
+            </button>
+          </div>
+          <div class="panel-body panel-body--flush">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>文件</th>
+                  <th class="col-size">大小</th>
+                  <th class="col-actions"></th>
+                </tr>
+              </thead>
+              <tbody id="results-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------------- 设置 ---------------- -->
+      <section class="view" data-view="settings" hidden>
+        <div class="settings-grid">
+          <div class="panel">
+            <div class="panel-head"><h2>存储与上传</h2></div>
+            <div class="panel-body settings-rows">
+              <div class="setting-row">
+                <span class="setting-label">存储渠道</span>
+                <span class="setting-value" id="cfg-channel">Cloudflare R2</span>
+              </div>
+              <div class="setting-row">
+                <span class="setting-label">单文件上限</span>
+                <span class="setting-value" id="cfg-limit">3 MB</span>
+              </div>
+              <div class="setting-row">
+                <span class="setting-label">访问域名</span>
+                <span class="setting-value u-mono" id="cfg-host">—</span>
+              </div>
+              <div class="setting-row">
+                <span class="setting-label">账号角色</span>
+                <span class="setting-value" id="cfg-role">管理员</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head"><h2>更多设置</h2></div>
+            <div class="panel-body">
+              <p class="u-muted setting-note">
+                安全策略、页面外观、白名单、API Token、AI 识别、索引重建等高级配置，仍由原有的完整设置面板提供，
+                在那边修改后会立即生效。
+              </p>
+              <a class="btn btn--primary" id="advanced-btn" href="/admin/advanced" target="_blank" rel="noopener">
+                打开高级设置
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6"></path><path d="M20 4 11 13"></path><path d="M18.5 14.5v4A1.5 1.5 0 0 1 17 20H5.5A1.5 1.5 0 0 1 4 18.5V7A1.5 1.5 0 0 1 5.5 5.5h4"></path></svg>
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="/admin-app/admin.js"></script>
+</body>
+</html>
