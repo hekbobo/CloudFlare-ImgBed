@@ -70,19 +70,18 @@
   color: var(--ink);
 }
 
+/* 品牌标记直接用 logo：渐变底与圆角都画在 SVG 里，容器只负责尺寸 */
 .brand-mark {
-  display: grid;
-  place-items: center;
+  display: block;
+  flex: none;
   width: 26px;
   height: 26px;
-  border-radius: var(--r-sm);
-  background: var(--solid);
-  color: var(--ink-invert);
 }
 
-.brand-mark svg {
-  width: 15px;
-  height: 15px;
+.brand-mark img {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .brand-name {

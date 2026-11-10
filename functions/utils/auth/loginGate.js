@@ -105,6 +105,8 @@ export function renderLoginPage({ siteName, error, providers }) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/svg+xml" href="/img/logo.svg">
+<link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
 <title>登录到 ${name}</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
