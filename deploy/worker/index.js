@@ -24,6 +24,8 @@ import * as apiManageBatchRestoreChunk from '../../functions/api/manage/batch/re
 import * as apiAuthGithubCallback from '../../functions/api/auth/github/callback.js';
 import * as apiAuthGithubLogin from '../../functions/api/auth/github/login.js';
 import * as apiAuthGithubMe from '../../functions/api/auth/github/me.js';
+import * as apiAuthGoogleCallback from '../../functions/api/auth/google/callback.js';
+import * as apiAuthGoogleLogin from '../../functions/api/auth/google/login.js';
 import * as apiManageAiTags from '../../functions/api/manage/ai/tags.js';
 import * as apiManageAiTest from '../../functions/api/manage/ai/test.js';
 import * as apiManageBatchList from '../../functions/api/manage/batch/list.js';
@@ -53,6 +55,7 @@ import * as apiManageApiTokens from '../../functions/api/manage/apiTokens.js';
 import * as apiManageExpiry from '../../functions/api/manage/expiry.js';
 import * as apiManageList from '../../functions/api/manage/list.js';
 import * as apiManageQuota from '../../functions/api/manage/quota.js';
+import * as apiManageUsers from '../../functions/api/manage/users.js';
 import * as apiPublicList from '../../functions/api/public/list.js';
 import * as uploadHuggingfaceCommitUpload from '../../functions/upload/huggingface/commitUpload.js';
 import * as uploadHuggingfaceCompleteMultipart from '../../functions/upload/huggingface/completeMultipart.js';
@@ -76,7 +79,7 @@ import * as fileCatchAll from '../../functions/file/[[path]].js';
 // --- Worker Cache 与定时任务 ---
 import { maybeServeFromCache } from './workerCache.js';
 import { runExpiryCleanupJob } from '../../functions/utils/fileExpiryService.js';
-import { githubLoginGate } from '../../functions/utils/auth/githubGate.js';
+import { authLoginGate } from '../../functions/utils/auth/loginGate.js';
 import { handlePageRoute } from '../../functions/utils/webRoutes.js';
 
 // ==================== 自动生成的路由表 ====================
@@ -89,6 +92,8 @@ const routes = [
     { path: '/api/auth/github/callback', module: apiAuthGithubCallback, middlewares: [mw_root, mw_api] },
     { path: '/api/auth/github/login', module: apiAuthGithubLogin, middlewares: [mw_root, mw_api] },
     { path: '/api/auth/github/me', module: apiAuthGithubMe, middlewares: [mw_root, mw_api] },
+    { path: '/api/auth/google/callback', module: apiAuthGoogleCallback, middlewares: [mw_root, mw_api] },
+    { path: '/api/auth/google/login', module: apiAuthGoogleLogin, middlewares: [mw_root, mw_api] },
     { path: '/api/manage/ai/tags', module: apiManageAiTags, middlewares: [mw_root, mw_api, mw_api_manage] },
     { path: '/api/manage/ai/test', module: apiManageAiTest, middlewares: [mw_root, mw_api, mw_api_manage] },
     { path: '/api/manage/batch/list', module: apiManageBatchList, middlewares: [mw_root, mw_api, mw_api_manage] },
@@ -118,6 +123,7 @@ const routes = [
     { path: '/api/manage/expiry', module: apiManageExpiry, middlewares: [mw_root, mw_api, mw_api_manage] },
     { path: '/api/manage/list', module: apiManageList, middlewares: [mw_root, mw_api, mw_api_manage] },
     { path: '/api/manage/quota', module: apiManageQuota, middlewares: [mw_root, mw_api, mw_api_manage] },
+    { path: '/api/manage/users', module: apiManageUsers, middlewares: [mw_root, mw_api, mw_api_manage] },
     { path: '/api/public/list', module: apiPublicList, middlewares: [mw_root, mw_api] },
     { path: '/upload/huggingface/commitUpload', module: uploadHuggingfaceCommitUpload, middlewares: [mw_root, mw_upload] },
     { path: '/upload/huggingface/completeMultipart', module: uploadHuggingfaceCompleteMultipart, middlewares: [mw_root, mw_upload] },
@@ -209,9 +215,9 @@ export default {
         const url = new URL(request.url);
         const pathname = url.pathname;
 
-        // GitHub 登录门禁：未登录的页面导航返回自定义 GitHub 登录页
-        // 仅在配置了 GITHUB_CLIENT_ID 时生效，未配置则完全不影响原有行为
-        const gateResponse = await githubLoginGate(request, env);
+        // 登录门禁：未登录的页面导航返回自定义登录页（GitHub / Google 按配置自动出现）
+        // 仅在配置了任意 provider 时生效，全部未配置则完全不影响原有行为
+        const gateResponse = await authLoginGate(request, env);
         if (gateResponse) return gateResponse;
 
         // 页面分区：/ 与 /history 走 Web 应用，/admin/* 走管理后台

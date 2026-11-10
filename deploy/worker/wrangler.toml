@@ -22,7 +22,7 @@ compatibility_flags = ["global_fetch_strictly_public"]
 [assets]
 directory = "../../frontend-dist"
 binding = "ASSETS"
-not_found_handling = "single-page-application"
+not_found_handling = "none"
 # 所有请求先进入 Worker，再由 Worker 决定是走业务路由还是交还静态资源。
 # 不能只在白名单里写 "/"：那样静态资源层会接管其余路径，
 # 用 SPA fallback 直接返回 index.html，把 /api 接口一起吞掉。
@@ -51,6 +51,15 @@ MAX_UPLOAD_SIZE_MB = "3"
 # 4) GITHUB_ADMIN_USERS   可选，拥有管理后台权限的用户；不填则默认等于 ALLOWED
 # 5) GITHUB_REDIRECT_URI  可选，默认 https://<你的域名>/api/auth/github/callback
 # GITHUB_CLIENT_ID = ""
+
+# ===== Google 登录（可选，可与 GitHub 同时开启）=====
+# 1) GOOGLE_CLIENT_ID      非敏感，可写在此处；与 SECRET 同时存在才会出现在登录页
+# 2) GOOGLE_CLIENT_SECRET  必须用 secret 上传（wrangler secret put）
+# 3) GOOGLE_ALLOWED_USERS  必须用 secret 上传，逗号分隔的邮箱；留空 = 拒绝 Google 登录
+# 4) GOOGLE_ADMIN_USERS    可选，拥有管理后台权限的邮箱；不填则退回到「最早注册的账号」
+# 5) GOOGLE_REDIRECT_URI   可选，默认 https://<你的域名>/api/auth/google/callback
+# 注意：Google 控制台的「已获授权的重定向 URI」必须与上面完全一致（含协议与路径）。
+# GOOGLE_CLIENT_ID = ""
 
 # ===== 元数据库（必须）：D1 =====
 [[d1_databases]]

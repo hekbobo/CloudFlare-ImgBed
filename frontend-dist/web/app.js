@@ -46,6 +46,13 @@
     });
   }
 
+  // 账号标识展示：GitHub 用户名加 @，Google 登录是邮箱，原样显示
+  function loginLabel(login) {
+    var value = String(login == null ? '' : login);
+    if (!value) return '';
+    return value.indexOf('@') > 0 ? value : '@' + value;
+  }
+
   function humanSize(bytes) {
     var n = Number(bytes) || 0;
     if (n <= 0) return '0 B';
@@ -234,7 +241,7 @@
     if (err && err.code === 401) {
       toast('登录状态已失效，正在跳转登录…', true);
       setTimeout(function () {
-        location.href = '/api/auth/github/login';
+        location.href = '/login';
       }, 900);
       return true;
     }
@@ -302,7 +309,7 @@
     $('user-initial').textContent = initial;
     $('menu-initial').textContent = initial;
     $('menu-name').textContent = name;
-    $('menu-login').textContent = me.login ? '@' + me.login : '';
+    $('menu-login').textContent = loginLabel(me.login);
 
     [['user-avatar', 'user-initial'], ['menu-avatar', 'menu-initial']].forEach(function (pair) {
       var img = $(pair[0]);
@@ -348,7 +355,7 @@
         /* 忽略：无论成功与否都回登录页 */
       })
       .then(function () {
-        location.href = '/api/auth/github/login';
+        location.href = '/login';
       });
   }
 

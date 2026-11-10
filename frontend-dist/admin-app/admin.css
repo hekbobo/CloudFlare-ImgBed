@@ -633,10 +633,17 @@
 
 /* 设置页用单列，避免左右面板高度不齐造成的悬空感 */
 .settings-grid {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
-  max-width: 720px;
+  align-items: start;
+  max-width: 900px;
+}
+
+@media (max-width: 860px) {
+  .settings-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .settings-rows {
@@ -672,10 +679,100 @@
   text-align: right;
 }
 
-.setting-note {
+/* ------------------------------------------------------------------ Users */
+
+.col-uid {
+  width: 118px;
+}
+
+.col-role {
+  width: 96px;
+}
+
+.col-num {
+  width: 68px;
+}
+
+.cell-user {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.col-uid .btn-text {
+  color: var(--ink-2);
   font-size: var(--fs-sm);
-  line-height: 1.65;
-  margin-bottom: 14px;
+}
+
+.col-uid .btn-text:hover {
+  color: var(--accent);
+}
+
+/* 文件页：按用户筛选后的条件标签 */
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--ctl-h-sm);
+  padding: 0 9px 0 10px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--r-full);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+}
+
+.filter-chip svg {
+  width: 11px;
+  height: 11px;
+  opacity: 0.7;
+}
+
+.filter-chip:hover {
+  background: var(--surface);
+  border-color: var(--accent);
+}
+
+.filter-chip:hover svg {
+  opacity: 1;
+}
+
+.filter-chip:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+}
+
+/* 面板头右侧的次要信息 */
+.panel-note {
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.panel--note {
+  margin-top: 14px;
+}
+
+.setting-value code,
+.setting-label code {
+  padding: 1px 5px;
+  border-radius: var(--r-xs);
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: var(--fs-xs);
+}
+
+.setting-value--wrap {
+  max-width: 62%;
+  color: var(--ink-2);
+  font-weight: 400;
+  line-height: 1.5;
+  white-space: normal;
+  text-align: right;
 }
 
 /* ------------------------------------------------------------- Responsive */
@@ -719,7 +816,7 @@
     order: 3;
     flex-direction: row;
     align-items: center;
-    gap: 2px;
+    gap: 0;
     flex: 0 0 auto;
     width: 100%;
     overflow-x: auto;
@@ -737,8 +834,14 @@
 
   .side-item {
     height: 32px;
-    padding: 0 10px;
+    padding: 0 8px;
+    gap: 7px;
     white-space: nowrap;
+  }
+
+  .side-item svg {
+    width: 14px;
+    height: 14px;
   }
 
   .side-item.is-active {
@@ -815,6 +918,8 @@
   /* 表格次要列隐藏 */
   .col-type,
   .col-size,
+  .col-uid,
+  .col-time,
   .cell-name small {
     display: none;
   }
@@ -829,18 +934,27 @@
     min-height: 190px;
     padding: 24px 16px;
   }
+
+  /* 窄屏：设置行改为上下堆叠，避免标签与值互相挤压 */
+  .setting-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+  }
+
+  .setting-value {
+    text-align: left;
+  }
+
+  .setting-value--wrap {
+    max-width: 100%;
+    text-align: left;
+  }
 }
 
 /* 触屏设备没有 hover：行内操作按钮常显 */
 @media (hover: none) {
   .row-actions {
     opacity: 1;
-  }
-}
-
-/* 小屏导航放不下「高级设置」，设置页内已有入口 */
-@media (max-width: 900px) {
-  #advanced-link {
-    display: none;
   }
 }

@@ -1,6 +1,6 @@
 /* ==========================================================================
    Sanyue ImgHub · 管理后台
-   路由：/admin（概览）· /admin/files · /admin/upload · /admin/settings
+   路由：/admin（概览）· /admin/files · /admin/upload · /admin/users · /admin/settings
    ========================================================================== */
 
 (function () {
@@ -14,7 +14,8 @@
     overview: { path: '/admin', title: '概览', desc: '站点存储与最近上传' },
     files: { path: '/admin/files', title: '文件管理', desc: '搜索、预览、批量删除' },
     upload: { path: '/admin/upload', title: '上传', desc: '拖拽或点击选择文件' },
-    settings: { path: '/admin/settings', title: '设置', desc: '存储渠道与高级配置入口' },
+    users: { path: '/admin/users', title: '用户', desc: '账号、文件归属与权限' },
+    settings: { path: '/admin/settings', title: '设置', desc: '存储渠道与当前用量' },
   };
 
   var TYPE_LABEL = { image: '图片', video: '视频', audio: '音频', other: '其他' };
@@ -29,8 +30,15 @@
       start: 0,
       type: '',
       search: '',
+      owner: '',
+      ownerLabel: '',
       loading: false,
       selected: Object.create(null),
+    },
+    users: {
+      list: [],
+      config: null,
+      loading: false,
     },
     queue: [],
     results: [],
@@ -47,6 +55,13 @@
     return String(text == null ? '' : text).replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
+  }
+
+  // 账号标识展示：GitHub 用户名加 @，Google 登录是邮箱，原样显示
+  function loginLabel(login) {
+    var value = String(login == null ? '' : login);
+    if (!value) return '';
+    return value.indexOf('@') > 0 ? value : '@' + value;
   }
 
   function humanSize(bytes) {
@@ -217,7 +232,7 @@
     if (err && err.code === 401) {
       toast('登录状态已失效，正在跳转登录…', true);
       setTimeout(function () {
-        location.href = '/api/auth/github/login';
+        location.href = '/login';
       }, 900);
       return true;
     }
@@ -271,7 +286,7 @@
     var authed = !!(me && me.authenticated);
 
     if (!authed) {
-      location.href = '/api/auth/github/login';
+      location.href = '/login';
       return;
     }
 
@@ -282,7 +297,7 @@
 
     var name = me.name || me.login || '已登录';
     $('side-user-name').textContent = name;
-    $('side-user-login').textContent = me.login ? '@' + me.login : '';
+    $('side-user-login').textContent = loginLabel(me.login);
 
     var initial = String(name).slice(0, 1).toUpperCase();
     $('side-avatar-initial').textContent = initial;
@@ -309,7 +324,7 @@
         /* 忽略 */
       })
       .then(function () {
-        location.href = '/api/auth/github/login';
+        location.href = '/login';
       });
   }
 
@@ -320,6 +335,7 @@
     if (path === '/admin' || path === '/admin/index.html') return 'overview';
     if (path.indexOf('/admin/files') === 0) return 'files';
     if (path.indexOf('/admin/upload') === 0) return 'upload';
+    if (path.indexOf('/admin/users') === 0) return 'users';
     if (path.indexOf('/admin/settings') === 0) return 'settings';
     return 'overview';
   }
@@ -348,15 +364,218 @@
     window.scrollTo({ top: 0 });
 
     if (page === 'overview') loadOverview();
-    if (page === 'files') loadFiles(true);
+    if (page === 'files') {
+      syncOwnerFromUrl();
+      loadFiles(true);
+    }
+    if (page === 'users') loadUsers();
     if (page === 'settings') renderSettings();
   }
+
+  /* ------------------------------------------------------------ 用户筛选 */
+
+  /**
+   * 文件页支持 /admin/files?owner=<uid>&as=<login>，
+   * 由用户管理页跳转过来，只列某个账号目录下的文件。
+   */
+  function syncOwnerFromUrl() {
+    var sp = new URLSearchParams(location.search);
+    var owner = sp.get('owner') || '';
+    var as = sp.get('as') || '';
+
+    if (owner !== state.files.owner) {
+      state.files.owner = owner;
+      state.files.ownerLabel = as || owner;
+      state.files.start = 0;
+      state.files.selected = Object.create(null);
+    } else if (as) {
+      state.files.ownerLabel = as;
+    }
+    renderOwnerChip();
+  }
+
+  function renderOwnerChip() {
+    var chip = $('owner-chip');
+    if (!chip) return;
+    var owner = state.files.owner;
+    chip.hidden = !owner;
+    if (!owner) return;
+    $('owner-chip-text').textContent = '仅看 @' + (state.files.ownerLabel || owner);
+  }
+
+  function clearOwnerFilter() {
+    state.files.owner = '';
+    state.files.ownerLabel = '';
+    history.replaceState({ page: 'files' }, '', ROUTES.files.path);
+    renderOwnerChip();
+    loadFiles(true);
+  }
+
 
   function renderSettings() {
     $('cfg-host').textContent = location.host;
     $('cfg-limit').textContent = MAX_MB + ' MB';
     $('cfg-channel').textContent = 'Cloudflare R2';
     $('max-size').textContent = MAX_MB;
+  }
+
+  /* ------------------------------------------------------------------ 用户 */
+
+  function sizeText(mb) {
+    var n = Number(mb) || 0;
+    if (n <= 0) return '0 MB';
+    if (n < 1) return Math.round(n * 1024) + ' KB';
+    if (n < 1024) return n.toFixed(n < 10 ? 2 : 1) + ' MB';
+    return (n / 1024).toFixed(2) + ' GB';
+  }
+
+  function loadUsers() {
+    var u = state.users;
+    if (u.loading) return;
+    u.loading = true;
+
+    request('/api/manage/users')
+      .then(function (data) {
+        if (!data || data.success === false) throw new Error((data && data.error) || '加载失败');
+        u.list = data.users || [];
+        u.config = data.config || null;
+        renderUsers(data);
+      })
+      .catch(function (err) {
+        if (!handleAuthError(err)) toast(err.message || '加载失败', true);
+        u.list = [];
+        renderUsers(null, err.message || '加载失败');
+      })
+      .then(function () {
+        u.loading = false;
+      });
+  }
+
+  function roleBadge(user) {
+    if (user.isAdmin) return '<span class="badge badge--ok">管理员</span>';
+    if (user.allowed === false) return '<span class="badge badge--danger">白名单外</span>';
+    return '<span class="badge badge--line">成员</span>';
+  }
+
+  function buildUserRow(user) {
+    var tr = document.createElement('tr');
+    tr.setAttribute('data-uid', user.uid);
+    tr.setAttribute('data-login', user.login);
+
+    var label = user.name || user.login || '?';
+    var initial = String(label).slice(0, 1).toUpperCase();
+    var avatar = user.avatar
+      ? '<img src="' + esc(user.avatar) + '" alt="" loading="lazy" onerror="this.remove()">'
+      : '';
+
+    tr.innerHTML =
+      '<td><div class="cell-user">' +
+      '<span class="avatar">' + avatar + '<span>' + esc(initial) + '</span></span>' +
+      '<span class="cell-name"><b>' + esc(label) + '</b><small>' + esc(loginLabel(user.login)) + '</small></span>' +
+      '</div></td>' +
+      '<td class="col-uid"><button type="button" class="btn-text u-mono" data-act="copy-uid" title="复制 UID">' +
+      esc(user.uid) + '</button></td>' +
+      '<td class="col-role">' + roleBadge(user) + '</td>' +
+      '<td class="col-num num">' + (user.files || 0) + '</td>' +
+      '<td class="col-size num">' + sizeText(user.sizeMB) + '</td>' +
+      '<td class="col-time num">' + (humanTime(user.createdAt) || '—') + '</td>' +
+      '<td class="col-actions"><span class="row-actions">' +
+      '<button type="button" class="btn btn--sm" data-act="files" title="查看该用户的文件" aria-label="查看该用户的文件">' +
+      ACT_ICONS.open + '</button>' +
+      '</span></td>';
+
+    return tr;
+  }
+
+  function onUserAction(e) {
+    var row = e.target.closest('[data-uid]');
+    if (!row) return;
+    var actEl = e.target.closest('[data-act]');
+    var act = actEl ? actEl.getAttribute('data-act') : null;
+    if (!act) return;
+    e.preventDefault();
+
+    var uid = row.getAttribute('data-uid');
+    var login = row.getAttribute('data-login');
+
+    if (act === 'copy-uid') {
+      copyText(uid).then(function () {
+        toast('UID 已复制');
+      });
+      return;
+    }
+
+    if (act === 'files') {
+      var url =
+        ROUTES.files.path +
+        '?owner=' + encodeURIComponent(uid) +
+        '&as=' + encodeURIComponent(login || '');
+      history.pushState({ page: 'files' }, '', url);
+      showPage('files', false);
+    }
+  }
+
+  function renderUsers(data, errorMessage) {
+    var tbody = $('users-tbody');
+    tbody.innerHTML = '';
+
+    if (!data) {
+      $('users-empty').hidden = false;
+      $('users-empty-title').textContent = '加载失败';
+      $('users-empty-sub').textContent = errorMessage || '请稍后重试';
+      $('u-total').textContent = '—';
+      $('u-admins').textContent = '—';
+      $('u-files').textContent = '—';
+      $('u-orphan').textContent = '—';
+      return;
+    }
+
+    var totals = data.totals || {};
+    var config = data.config || {};
+    var indexed = data.indexed !== false;
+
+    $('u-total').textContent = totals.users || 0;
+    $('u-admins').textContent = totals.admins || 0;
+    $('u-admins-foot').textContent = config.adminSource === 'bootstrap'
+      ? '最早注册的账号'
+      : '来源：GITHUB_ADMIN_USERS';
+
+    $('u-files').textContent = indexed ? (totals.files || 0) : '—';
+    $('u-files-foot').textContent = indexed ? sizeText(totals.sizeMB) : '索引不可用';
+
+    $('u-orphan').textContent = indexed ? (totals.orphanFiles || 0) : '—';
+    $('u-orphan-foot').textContent = indexed
+      ? (totals.orphanFiles ? sizeText(totals.orphanSizeMB) : '没有遗留文件')
+      : '索引不可用';
+
+    var admins = config.admins || [];
+    $('u-admin-list').textContent = admins.length
+      ? admins.join('、') + (config.adminSource === 'bootstrap' ? '（未配置，自动接管）' : '')
+      : '—';
+
+    var allowed = config.allowedUsers || [];
+    $('u-allow-list').textContent = config.allowedListEmpty
+      ? '未配置（此时任何账号都无法登录）'
+      : allowed.join('、');
+
+    $('u-updated').textContent = '刷新于 ' + humanTime(Date.now());
+
+    if (!state.users.list.length) {
+      $('users-empty').hidden = false;
+      $('users-empty-title').textContent = '还没有账号';
+      $('users-empty-sub').textContent = '第一个用 GitHub 登录的人会自动成为管理员';
+      $('side-users-count').hidden = true;
+      return;
+    }
+
+    $('users-empty').hidden = true;
+    state.users.list.forEach(function (user) {
+      tbody.appendChild(buildUserRow(user));
+    });
+
+    var countEl = $('side-users-count');
+    countEl.textContent = state.users.list.length;
+    countEl.hidden = false;
   }
 
   /* ------------------------------------------------------------------ 概览 */
@@ -383,6 +602,16 @@
         var sizeText = isNaN(size) ? '0 MB' : size >= 1024 ? (size / 1024).toFixed(2) + ' GB' : size.toFixed(2) + ' MB';
         $('stat-count').textContent = data.totalCount || 0;
         $('stat-size').textContent = sizeText;
+
+        // 设置页的「使用情况」：同一份配额数据，不额外发请求
+        var usedEl = $('cfg-used');
+        if (usedEl) usedEl.textContent = sizeText;
+        var filesEl = $('cfg-files');
+        if (filesEl) filesEl.textContent = data.totalCount || 0;
+        var scopeEl = $('cfg-scope');
+        if (scopeEl) scopeEl.textContent = data.scope === 'user' ? '仅本人' : '全站';
+        var updatedEl = $('cfg-updated');
+        if (updatedEl) updatedEl.textContent = humanTime(data.lastUpdated) || '—';
       })
       .catch(function () {
         /* 静默 */
@@ -440,6 +669,7 @@
     params.set('recursive', 'true');
     if (f.type) params.set('fileType', f.type);
     if (f.search) params.set('search', f.search);
+    if (f.owner) params.set('owner', f.owner);
 
     request('/api/manage/list?' + params.toString())
       .then(function (data) {
@@ -447,8 +677,10 @@
         f.items = files.map(normalizeFile);
         f.total = Number(data && data.totalCount) || f.items.length;
         renderFiles();
-        $('side-count').textContent = f.total;
-        $('side-count').hidden = !f.total;
+        if (!f.owner) {
+          $('side-count').textContent = f.total;
+          $('side-count').hidden = !f.total;
+        }
       })
       .catch(function (err) {
         if (!handleAuthError(err)) toast(err.message || '加载失败', true);
@@ -470,6 +702,8 @@
       $('files-empty-title').textContent = errorMessage ? '加载失败' : '没有文件';
       $('files-empty-sub').textContent = errorMessage
         ? errorMessage
+        : f.owner
+        ? '这个账号名下还没有文件'
         : f.search || f.type
         ? '换个关键词或筛选条件试试'
         : '上传第一个文件后，它会出现在这里';
@@ -917,6 +1151,11 @@
 
     // 文件管理
     $('files-tbody').addEventListener('click', onRowAction);
+    $('owner-chip').addEventListener('click', clearOwnerFilter);
+
+    // 用户
+    $('users-tbody').addEventListener('click', onUserAction);
+    $('users-refresh').addEventListener('click', loadUsers);
 
     $('select-all').addEventListener('change', function () {
       var on = this.checked;

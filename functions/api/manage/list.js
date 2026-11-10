@@ -22,9 +22,12 @@ export async function onRequest(context) {
     // 管理端打开文件列表时顺带清理一批到期文件（Pages 没有定时任务，依靠它和手动清理）
     maybeCleanupExpiredFiles(context);
 
-    // 用户隔离：非管理员只能看到自己的文件
+    // 用户隔离：非管理员只能看到自己的文件；管理员可用 ?owner=<uid> 主动筛选某个用户
     const scope = await resolveUserScope(context);
-    const ownerUid = scope && !scope.isAdmin ? (scope.uid || '\u0000no-owner') : '';
+    const requestedOwner = (url.searchParams.get('owner') || '').trim();
+    const ownerUid = scope && !scope.isAdmin
+        ? (scope.uid || '\u0000no-owner')
+        : (requestedOwner || '');
 
     // 解析查询参数
     let start = parseInt(url.searchParams.get('start'), 10) || 0;

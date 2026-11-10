@@ -212,7 +212,7 @@ ${imports}
 // --- Worker Cache 与定时任务 ---
 import { maybeServeFromCache } from './workerCache.js';
 import { runExpiryCleanupJob } from '../../functions/utils/fileExpiryService.js';
-import { githubLoginGate } from '../../functions/utils/auth/githubGate.js';
+import { authLoginGate } from '../../functions/utils/auth/loginGate.js';
 import { handlePageRoute } from '../../functions/utils/webRoutes.js';
 
 // ==================== 自动生成的路由表 ====================
@@ -290,9 +290,9 @@ export default {
         const url = new URL(request.url);
         const pathname = url.pathname;
 
-        // GitHub 登录门禁：未登录的页面导航返回自定义 GitHub 登录页
-        // 仅在配置了 GITHUB_CLIENT_ID 时生效，未配置则完全不影响原有行为
-        const gateResponse = await githubLoginGate(request, env);
+        // 登录门禁：未登录的页面导航返回自定义登录页（GitHub / Google 按配置自动出现）
+        // 仅在配置了任意 provider 时生效，全部未配置则完全不影响原有行为
+        const gateResponse = await authLoginGate(request, env);
         if (gateResponse) return gateResponse;
 
         // 页面分区：/ 与 /history 走 Web 应用，/admin/* 走管理后台

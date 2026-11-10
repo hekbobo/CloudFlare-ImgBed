@@ -52,13 +52,14 @@
       </a>
 
       <div class="side-label">系统</div>
+      <a class="side-item" href="/admin/users" data-page="users">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"></circle><path d="M5.6 19.6c0-3.5 2.9-6.2 6.4-6.2s6.4 2.7 6.4 6.2"></path></svg>
+        用户
+        <span class="side-count" id="side-users-count" hidden></span>
+      </a>
       <a class="side-item" href="/admin/settings" data-page="settings">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.6 1.6 0 0 0 .32 1.77l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.6 1.6 0 0 0-1.77-.32 1.6 1.6 0 0 0-.97 1.46V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 9.1 19.4a1.6 1.6 0 0 0-1.77.32l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.6 1.6 0 0 0 4.6 15a1.6 1.6 0 0 0-1.46-.97H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 9.1a1.6 1.6 0 0 0-.32-1.77l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.6 1.6 0 0 0 9 4.6h.1A1.6 1.6 0 0 0 10 3.14V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 .97 1.46 1.6 1.6 0 0 0 1.77-.32l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.6 1.6 0 0 0 19.4 9v.1a1.6 1.6 0 0 0 1.46.97H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.46.97z"></path></svg>
         设置
-      </a>
-      <a class="side-item" id="advanced-link" href="/admin/advanced" target="_blank" rel="noopener">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6"></path><path d="M20 4 11 13"></path><path d="M18.5 14.5v4A1.5 1.5 0 0 1 17 20H5.5A1.5 1.5 0 0 1 4 18.5V7A1.5 1.5 0 0 1 5.5 5.5h4"></path></svg>
-        高级设置
       </a>
     </nav>
 
@@ -169,6 +170,11 @@
             <button data-type="other" type="button">其他</button>
           </div>
 
+          <button class="filter-chip" id="owner-chip" type="button" hidden title="清除该用户筛选">
+            <span id="owner-chip-text"></span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"></path></svg>
+          </button>
+
           <span class="u-spacer"></span>
 
           <button class="btn btn--sm btn--danger-quiet" id="bulk-delete" type="button" hidden>
@@ -231,7 +237,7 @@
             <h2>本次上传 <span class="badge badge--accent" id="results-count">0</span></h2>
             <button class="btn btn--sm" id="copy-all" type="button">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M15 5.5A1.5 1.5 0 0 0 13.5 4h-8A1.5 1.5 0 0 0 4 5.5v8A1.5 1.5 0 0 0 5.5 15"></path></svg>
-              复制全部
+              复制链接
             </button>
           </div>
           <div class="panel-body panel-body--flush">
@@ -245,6 +251,81 @@
               </thead>
               <tbody id="results-tbody"></tbody>
             </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------------- 用户 ---------------- -->
+      <section class="view" data-view="users" hidden>
+        <div class="stats">
+          <div class="stat">
+            <span class="stat-label">账号总数</span>
+            <span class="stat-value" id="u-total">—</span>
+            <span class="stat-foot">登录过的 GitHub 账号</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">管理员</span>
+            <span class="stat-value" id="u-admins">—</span>
+            <span class="stat-foot" id="u-admins-foot">来源：环境变量</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">用户文件</span>
+            <span class="stat-value" id="u-files">—</span>
+            <span class="stat-foot" id="u-files-foot">归属明确</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">未归属文件</span>
+            <span class="stat-value" id="u-orphan">—</span>
+            <span class="stat-foot" id="u-orphan-foot">无 Owner 标记</span>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h2>账号与归属</h2>
+            <span class="u-row">
+              <span class="panel-note" id="u-updated"></span>
+              <button class="btn btn--sm btn--icon" id="users-refresh" type="button" title="刷新" aria-label="刷新">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7"></path><path d="M20 4.5V11h-6"></path></svg>
+              </button>
+            </span>
+          </div>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>用户</th>
+                <th class="col-uid">UID</th>
+                <th class="col-role">角色</th>
+                <th class="col-num">文件</th>
+                <th class="col-size">占用</th>
+                <th class="col-time">加入时间</th>
+                <th class="col-actions"></th>
+              </tr>
+            </thead>
+            <tbody id="users-tbody"></tbody>
+          </table>
+          <div class="empty-state" id="users-empty" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9.2" cy="8.2" r="3.3"></circle><path d="M3.6 19.4c0-3 2.5-5.4 5.6-5.4s5.6 2.4 5.6 5.4"></path></svg>
+            <strong id="users-empty-title">还没有账号</strong>
+            <span id="users-empty-sub">第一个用 GitHub 登录的人会自动成为管理员</span>
+          </div>
+        </div>
+
+        <div class="panel panel--note">
+          <div class="panel-head"><h2>权限来源</h2></div>
+          <div class="panel-body settings-rows">
+            <div class="setting-row">
+              <span class="setting-label">管理员（<code class="u-mono">GITHUB_ADMIN_USERS</code>）</span>
+              <span class="setting-value u-truncate" id="u-admin-list">—</span>
+            </div>
+            <div class="setting-row">
+              <span class="setting-label">登录白名单（<code class="u-mono">GITHUB_ALLOWED_USERS</code>）</span>
+              <span class="setting-value u-truncate" id="u-allow-list">—</span>
+            </div>
+            <div class="setting-row">
+              <span class="setting-label">UID 用途</span>
+              <span class="setting-value setting-value--wrap">文件目录前缀，创建后不再改变；删账号不会回收 UID</span>
+            </div>
           </div>
         </div>
       </section>
@@ -275,18 +356,27 @@
           </div>
 
           <div class="panel">
-            <div class="panel-head"><h2>更多设置</h2></div>
-            <div class="panel-body">
-              <p class="u-muted setting-note">
-                安全策略、页面外观、白名单、API Token、AI 识别、索引重建等高级配置，仍由原有的完整设置面板提供，
-                在那边修改后会立即生效。
-              </p>
-              <a class="btn btn--primary" id="advanced-btn" href="/admin/advanced" target="_blank" rel="noopener">
-                打开高级设置
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6"></path><path d="M20 4 11 13"></path><path d="M18.5 14.5v4A1.5 1.5 0 0 1 17 20H5.5A1.5 1.5 0 0 1 4 18.5V7A1.5 1.5 0 0 1 5.5 5.5h4"></path></svg>
-              </a>
+            <div class="panel-head"><h2>使用情况</h2></div>
+            <div class="panel-body settings-rows">
+              <div class="setting-row">
+                <span class="setting-label">已用容量</span>
+                <span class="setting-value" id="cfg-used">—</span>
+              </div>
+              <div class="setting-row">
+                <span class="setting-label">文件总数</span>
+                <span class="setting-value" id="cfg-files">—</span>
+              </div>
+              <div class="setting-row">
+                <span class="setting-label">统计范围</span>
+                <span class="setting-value" id="cfg-scope">全站</span>
+              </div>
+              <div class="setting-row">
+                <span class="setting-label">统计时间</span>
+                <span class="setting-value u-mono" id="cfg-updated">—</span>
+              </div>
             </div>
           </div>
+
         </div>
       </section>
 

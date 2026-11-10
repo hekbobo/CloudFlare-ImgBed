@@ -1,7 +1,7 @@
 /**
  * 页面分区路由
  *
- * 前端拆成三个独立入口，同一套判断逻辑给三种运行环境复用：
+ * 前端拆成两个独立入口，同一套判断逻辑给三种运行环境复用：
  *   - Worker 入口（deploy/worker/index.js，由 generate-routes.js 生成）
  *   - Pages 中间件（functions/_middleware.js）
  *   - Node / Docker 服务（deploy/server/index.js 里的简化实现）
@@ -9,18 +9,20 @@
  * 路由约定：
  *   /                  用户侧 Web 应用（上传）
  *   /history           用户侧 Web 应用（历史文件）
- *   /admin             管理后台（新原生应用，概览）
- *   /admin/files        管理后台 · 文件管理
+ *   /admin             管理后台（原生应用，概览）
+ *   /admin/files        管理后台 · 文件管理（支持 ?owner=<uid> 按账号筛选）
  *   /admin/upload       管理后台 · 上传
+ *   /admin/users        管理后台 · 用户
  *   /admin/settings     管理后台 · 设置
- *   /admin/advanced*    原 SPA 完整设置面板（vue-router base = /admin/advanced/）
- *   旧路径              301 → 新地址
+ *   /login              登录页（由登录门禁在未登录时直接渲染）
+ *   旧路径              301 → 新地址（含已下线的原 SPA /admin/advanced）
  */
+
+import { isAuthEnabled } from './auth/providers.js';
 
 export const PAGE_ASSETS = {
     web: '/web/index.html',
     admin: '/admin-app/index.html',
-    adminAdvanced: '/admin-spa.html',
 };
 
 // 这些前缀不是页面导航，直接跳过（接口、文件、上传通道、WebDAV、随机图、静态目录）
@@ -33,24 +35,19 @@ const NON_PAGE_PREFIXES = [
     '/web',
     '/ui',
     '/admin-app',
-    '/js',
-    '/css',
-    '/img',
-    '/fonts',
-    '/entry',
     '/static',
 ];
 
 // 管理后台改版前的旧路径，做永久跳转，避免老书签失效。
-// 文件管理类落到新后台，其余设置类落到原 SPA（/admin/advanced/*）
+// 原 SPA（/admin/advanced/*）已下线，设置类页面统一落到新后台的设置页。
 export const LEGACY_PAGE_REDIRECTS = {
     '/dashboard': '/admin/files',
-    '/systemConfig': '/admin/advanced/systemConfig',
-    '/customerConfig': '/admin/advanced/customerConfig',
-    '/blockimg': '/admin/advanced/blockimg',
-    '/whiteliston': '/admin/advanced/whiteliston',
-    '/login': '/admin/advanced/login',
-    '/adminLogin': '/admin/advanced/adminLogin',
+    '/browse': '/admin/files',
+    '/systemConfig': '/admin/settings',
+    '/customerConfig': '/admin/settings',
+    '/blockimg': '/admin/files',
+    '/whiteliston': '/admin/settings',
+    '/adminLogin': '/admin',
 };
 
 /**
@@ -79,17 +76,22 @@ export function resolvePageRoute(pathname) {
         return { redirect: legacyTarget, permanent: true };
     }
 
-    // 目录浏览页属于后台（原 SPA 的功能）
-    if (pathname === '/browse' || pathname.startsWith('/browse/')) {
-        return { redirect: '/admin/advanced' + pathname, permanent: true };
+    // 目录浏览页属于后台，旧地址统一落到文件管理
+    if (pathname.startsWith('/browse/')) {
+        return { redirect: '/admin/files', permanent: true };
     }
 
-    // 高级设置：原 SPA，独立基路径，必须在 /admin/* 之前判断
+    // 原 SPA 已下线，老链接不留在 404 上，直接回新后台
     if (pathname === '/admin/advanced' || pathname.startsWith('/admin/advanced/')) {
-        return { asset: PAGE_ASSETS.adminAdvanced, adminOnly: true };
+        return { redirect: '/admin', permanent: true };
     }
 
-    // 新管理后台：单页应用，所有 /admin 子路径都返回同一个外壳，前端自行分流
+    // /login 是登录门禁渲染的登录页；能走到这里说明已经登录了，直接回首页
+    if (pathname === '/login') {
+        return { redirect: '/', permanent: false };
+    }
+
+    // 管理后台：单页应用，所有 /admin 子路径都返回同一个外壳，前端自行分流
     if (pathname === '/admin' || pathname.startsWith('/admin/')) {
         return { asset: PAGE_ASSETS.admin, adminOnly: true };
     }
@@ -136,9 +138,9 @@ export async function handlePageRoute(request, env, url) {
         return redirectResponse(route.redirect + url.search, route.permanent);
     }
 
-    // 配置了 GitHub 登录时，后台只允许管理员进入；
-    // 未配置则沿用 SPA 自带的密码登录，不在这里拦。
-    if (route.adminOnly && env.GITHUB_CLIENT_ID) {
+    // 配置了任一登录方式时，后台只允许管理员进入；
+    // 都未配置则不在页面层拦，交给接口层按原有鉴权方式处理。
+    if (route.adminOnly && isAuthEnabled(env)) {
         const { resolveUserScope } = await import('./auth/userScope.js');
         const scope = await resolveUserScope({ env, request });
         if (!scope || !scope.isAdmin) {
