@@ -32,6 +32,9 @@
       search: '',
       owner: '',
       ownerLabel: '',
+      // uid → 账号记录，来自 /api/manage/owners，取一次复用；null 表示还没取
+      owners: null,
+      ownersPromise: null,
       loading: false,
       selected: Object.create(null),
     },
@@ -400,7 +403,8 @@
     var owner = state.files.owner;
     chip.hidden = !owner;
     if (!owner) return;
-    $('owner-chip-text').textContent = '仅看 @' + (state.files.ownerLabel || owner);
+    // 邮箱账号不加 @ 前缀，GitHub 用户名自动补 @
+    $('owner-chip-text').textContent = '仅看 ' + loginLabel(state.files.ownerLabel || owner);
   }
 
   function clearOwnerFilter() {
@@ -585,7 +589,10 @@
   function loadOverview() {
     loadQuota();
 
-    request('/api/manage/list?start=0&count=8&recursive=true')
+    ensureOwners()
+      .then(function () {
+        return request('/api/manage/list?start=0&count=8&recursive=true');
+      })
       .then(function (data) {
         var items = ((data && data.files) || []).map(normalizeFile);
         renderRecent(items);
@@ -642,9 +649,45 @@
 
   /* -------------------------------------------------------------- 文件管理 */
 
+  /**
+   * 上传者字典：文件里只有 metadata.Owner（8 位 uid），这里换成账号信息。
+   * 只取一次，之后翻页 / 搜索复用；失败时降级为空表，列表仍能正常显示。
+   */
+  function ensureOwners(force) {
+    var f = state.files;
+    if (force) {
+      f.owners = null;
+      f.ownersPromise = null;
+    }
+    if (f.owners) return Promise.resolve(f.owners);
+    if (f.ownersPromise) return f.ownersPromise;
+
+    f.ownersPromise = request('/api/manage/owners')
+      .then(function (data) {
+        var map = Object.create(null);
+        ((data && data.owners) || []).forEach(function (owner) {
+          if (owner && owner.uid) map[owner.uid] = owner;
+        });
+        f.owners = map;
+        return map;
+      })
+      .catch(function () {
+        f.owners = Object.create(null);
+        return f.owners;
+      })
+      .then(function (map) {
+        f.ownersPromise = null;
+        return map;
+      });
+
+    return f.ownersPromise;
+  }
+
   function normalizeFile(record) {
     var meta = record.metadata || {};
     var name = meta.FileName || String(record.name || '').split('/').pop();
+    var ownerUid = meta.Owner || '';
+    var owner = ownerUid && state.files.owners ? state.files.owners[ownerUid] : null;
     return {
       id: record.name,
       name: name,
@@ -652,6 +695,10 @@
       size: humanSize(meta.FileSizeBytes || Math.round((Number(meta.FileSize) || 0) * 1024 * 1024)),
       time: humanTime(meta.TimeStamp),
       category: categoryOf(meta.FileType, name),
+      ownerUid: ownerUid,
+      ownerLogin: owner ? owner.login : '',
+      ownerName: owner ? owner.name || owner.login : '',
+      ownerAvatar: owner ? owner.avatar || '' : '',
     };
   }
 
@@ -673,7 +720,10 @@
     if (f.search) params.set('search', f.search);
     if (f.owner) params.set('owner', f.owner);
 
-    request('/api/manage/list?' + params.toString())
+    ensureOwners()
+      .then(function () {
+        return request('/api/manage/list?' + params.toString());
+      })
       .then(function (data) {
         var files = (data && data.files) || [];
         f.items = files.map(normalizeFile);
@@ -732,6 +782,27 @@
     renderBulk();
   }
 
+  // 上传者单元格：头像 + 账号，点进去只看这个人的文件
+  function ownerCell(item) {
+    if (!item.ownerUid) {
+      return '<span class="cell-owner cell-owner--none" title="上传时未记录归属">未知</span>';
+    }
+    if (!item.ownerLogin) {
+      return '<span class="cell-owner cell-owner--none" title="账号库里找不到这个 uid">' + esc(item.ownerUid) + '</span>';
+    }
+
+    var label = loginLabel(item.ownerLogin);
+    var avatar = item.ownerAvatar
+      ? '<img src="' + esc(item.ownerAvatar) + '" alt="" loading="lazy" onerror="this.remove()">'
+      : '<i>' + esc(String(item.ownerName || item.ownerLogin).slice(0, 1).toUpperCase()) + '</i>';
+    var href = '/admin/files?owner=' + encodeURIComponent(item.ownerUid) +
+      '&as=' + encodeURIComponent(item.ownerLogin);
+
+    return '<a class="cell-owner" href="' + esc(href) + '" title="只看 ' + esc(label) + ' 的文件">' +
+      '<span class="owner-avatar">' + avatar + '</span>' +
+      '<span class="owner-name">' + esc(label) + '</span></a>';
+  }
+
   function buildRow(item, options) {
     options = options || {};
     var tr = document.createElement('tr');
@@ -758,6 +829,7 @@
       '<td class="col-type"><span class="badge">' + TYPE_LABEL[item.category] + '</span></td>' +
       '<td class="col-size num">' + esc(item.size) + '</td>' +
       '<td class="col-time num">' + esc(item.time) + '</td>' +
+      '<td class="col-owner">' + ownerCell(item) + '</td>' +
       '<td class="col-actions"><span class="row-actions">' +
       '<button type="button" class="btn btn--sm" data-act="copy" title="复制链接" aria-label="复制链接">' + ACT_ICONS.copy + '</button>' +
       '<button type="button" class="btn btn--sm" data-act="open" title="打开原文件" aria-label="打开原文件">' + ACT_ICONS.open + '</button>' +

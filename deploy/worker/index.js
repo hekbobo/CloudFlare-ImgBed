@@ -54,6 +54,7 @@ import * as apiBingWallpaper_index from '../../functions/api/bing/wallpaper/inde
 import * as apiManageApiTokens from '../../functions/api/manage/apiTokens.js';
 import * as apiManageExpiry from '../../functions/api/manage/expiry.js';
 import * as apiManageList from '../../functions/api/manage/list.js';
+import * as apiManageOwners from '../../functions/api/manage/owners.js';
 import * as apiManageQuota from '../../functions/api/manage/quota.js';
 import * as apiManageUsers from '../../functions/api/manage/users.js';
 import * as apiPublicList from '../../functions/api/public/list.js';
@@ -122,6 +123,7 @@ const routes = [
     { path: '/api/manage/apiTokens', module: apiManageApiTokens, middlewares: [mw_root, mw_api, mw_api_manage] },
     { path: '/api/manage/expiry', module: apiManageExpiry, middlewares: [mw_root, mw_api, mw_api_manage] },
     { path: '/api/manage/list', module: apiManageList, middlewares: [mw_root, mw_api, mw_api_manage] },
+    { path: '/api/manage/owners', module: apiManageOwners, middlewares: [mw_root, mw_api, mw_api_manage] },
     { path: '/api/manage/quota', module: apiManageQuota, middlewares: [mw_root, mw_api, mw_api_manage] },
     { path: '/api/manage/users', module: apiManageUsers, middlewares: [mw_root, mw_api, mw_api_manage] },
     { path: '/api/public/list', module: apiPublicList, middlewares: [mw_root, mw_api] },
