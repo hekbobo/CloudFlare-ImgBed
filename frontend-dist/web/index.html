@@ -101,24 +101,39 @@
 
   <!-- ==================== 上传 ==================== -->
   <section class="view" id="view-upload">
-    <div class="page-head">
-      <div class="page-head-text">
-        <h1>上传文件</h1>
-        <p class="page-sub">拖拽文件、点击选择，或按 <kbd class="kbd">Ctrl</kbd> <kbd class="kbd">V</kbd> 粘贴剪贴板里的内容</p>
+    <div class="hero">
+      <div class="hero-aurora" aria-hidden="true"><i></i><i></i><i></i></div>
+
+      <div class="hero-head">
+        <span class="hero-eyebrow"><span class="hero-dot" aria-hidden="true"></span>即时直链 · 拖拽上传</span>
+        <h1 class="hero-title">上传文件</h1>
+        <p class="hero-sub">拖拽文件、点击选择，或按 <kbd class="kbd">Ctrl</kbd> <kbd class="kbd">V</kbd> 粘贴剪贴板里的内容</p>
       </div>
-    </div>
 
     <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="选择或拖拽文件上传">
-      <span class="dz-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 16V4.5"></path>
-          <path d="m7.5 9 4.5-4.5L16.5 9"></path>
+      <span class="dz-corners" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+      <span class="dz-orb" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 16.5V4.5"></path>
+          <path d="m7.2 9.3 4.8-4.8 4.8 4.8"></path>
           <path d="M4 15v3.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V15"></path>
         </svg>
       </span>
       <span class="dz-title">拖拽文件到此处</span>
-      <span class="dz-sub">或<span class="dz-link">点击选择文件</span></span>
-      <span class="dz-meta">单文件最大 <b id="max-size">3</b> MB · 图片 / 视频 / 音频 / 文档</span>
+      <span class="dz-hover">松手即可上传</span>
+      <span class="dz-actions">
+        <span class="dz-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 5v14M5 12h14"></path>
+          </svg>
+          选择文件
+        </span>
+        <span class="dz-hint">或 <kbd class="kbd">Ctrl</kbd> <kbd class="kbd">V</kbd> 粘贴</span>
+      </span>
+      <span class="dz-meta">单文件最大 <b id="max-size">3</b> MB</span>
+      <span class="dz-types" aria-hidden="true">
+        <span>JPG</span><span>PNG</span><span>GIF</span><span>WEBP</span><span>MP4</span><span>MP3</span><span>PDF</span><span>ZIP</span>
+      </span>
       <input type="file" id="file-input" multiple hidden>
     </div>
 
@@ -141,6 +156,7 @@
         </span>
         <span class="tip-text"><b>历史可查</b><span>已上传的文件都在「历史文件」里管理</span></span>
       </div>
+    </div>
     </div>
 
     <div class="queue" id="queue" hidden></div>
