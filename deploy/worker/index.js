@@ -21,6 +21,8 @@ import * as apiManageBatchIndexChunk from '../../functions/api/manage/batch/inde
 import * as apiManageBatchIndexConfig from '../../functions/api/manage/batch/index/config.js';
 import * as apiManageBatchIndexFinalize from '../../functions/api/manage/batch/index/finalize.js';
 import * as apiManageBatchRestoreChunk from '../../functions/api/manage/batch/restore/chunk.js';
+import * as apiAuthGithubCallback from '../../functions/api/auth/github/callback.js';
+import * as apiAuthGithubLogin from '../../functions/api/auth/github/login.js';
 import * as apiManageAiTags from '../../functions/api/manage/ai/tags.js';
 import * as apiManageAiTest from '../../functions/api/manage/ai/test.js';
 import * as apiManageBatchList from '../../functions/api/manage/batch/list.js';
@@ -73,6 +75,7 @@ import * as fileCatchAll from '../../functions/file/[[path]].js';
 // --- Worker Cache 与定时任务 ---
 import { maybeServeFromCache } from './workerCache.js';
 import { runExpiryCleanupJob } from '../../functions/utils/fileExpiryService.js';
+import { githubLoginGate } from '../../functions/utils/auth/githubGate.js';
 
 // ==================== 自动生成的路由表 ====================
 
@@ -81,6 +84,8 @@ const routes = [
     { path: '/api/manage/batch/index/config', module: apiManageBatchIndexConfig, middlewares: [mw_root, mw_api, mw_api_manage] },
     { path: '/api/manage/batch/index/finalize', module: apiManageBatchIndexFinalize, middlewares: [mw_root, mw_api, mw_api_manage] },
     { path: '/api/manage/batch/restore/chunk', module: apiManageBatchRestoreChunk, middlewares: [mw_root, mw_api, mw_api_manage] },
+    { path: '/api/auth/github/callback', module: apiAuthGithubCallback, middlewares: [mw_root, mw_api] },
+    { path: '/api/auth/github/login', module: apiAuthGithubLogin, middlewares: [mw_root, mw_api] },
     { path: '/api/manage/ai/tags', module: apiManageAiTags, middlewares: [mw_root, mw_api, mw_api_manage] },
     { path: '/api/manage/ai/test', module: apiManageAiTest, middlewares: [mw_root, mw_api, mw_api_manage] },
     { path: '/api/manage/batch/list', module: apiManageBatchList, middlewares: [mw_root, mw_api, mw_api_manage] },
@@ -200,6 +205,11 @@ export default {
     async fetch(request, env, ctx) {
         const url = new URL(request.url);
         const pathname = url.pathname;
+
+        // GitHub 登录门禁：未登录的页面导航返回自定义 GitHub 登录页
+        // 仅在配置了 GITHUB_CLIENT_ID 时生效，未配置则完全不影响原有行为
+        const gateResponse = await githubLoginGate(request, env);
+        if (gateResponse) return gateResponse;
 
         const matched = matchRoute(pathname);
 

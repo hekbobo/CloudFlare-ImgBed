@@ -23,6 +23,10 @@ compatibility_flags = ["global_fetch_strictly_public"]
 directory = "../../frontend-dist"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
+# 所有请求先进入 Worker，再由 Worker 决定是走业务路由还是交还静态资源。
+# 不能只在白名单里写 "/"：那样静态资源层会接管其余路径，
+# 用 SPA fallback 直接返回 index.html，把 /api 接口一起吞掉。
+run_worker_first = true
 
 # Cloudflare Images 原生图片处理
 [images]
@@ -30,18 +34,32 @@ binding = "IMAGES"
 
 [vars]
 # AI_CONFIG_SECRET 请配置为 Secret，值为至少 32 个字符的随机密钥。
+# 敏感值（AUTH_CODE / BASIC_PASS / TG_BOT_TOKEN 等）不要写在这里，
+# 用 npx wrangler secret put <NAME> --config deploy/worker/wrangler.toml 上传。
 # TG_BOT_TOKEN = ""
 # TG_CHAT_ID = ""
 
-# [[d1_databases]]
-# binding = "img_d1"
-# database_name = "img_d1"
-# database_id = ""
+# ===== GitHub OAuth 登录（配置任意一项前，先看下面顺序）=====
+# 1) GITHUB_CLIENT_ID     非敏感，可写在此处；配置后登录门禁才会启用
+# 2) GITHUB_CLIENT_SECRET 必须用 secret 上传（wrangler secret put）
+# 3) GITHUB_ALLOWED_USERS 必须用 secret 上传，逗号分隔的 GitHub 用户名；留空 = 拒绝所有人
+# 4) GITHUB_ADMIN_USERS   可选，拥有管理后台权限的用户；不填则默认等于 ALLOWED
+# 5) GITHUB_REDIRECT_URI  可选，默认 https://<你的域名>/api/auth/github/callback
+# GITHUB_CLIENT_ID = ""
 
-# [[r2_buckets]]
-# binding = "img_r2"
-# bucket_name = ""
+# ===== 元数据库（必须）：D1 =====
+[[d1_databases]]
+binding = "img_d1"
+database_name = "img_d1"
+database_id = "1ac9db75-445f-48bd-b5a4-8261ad1942b9"
 
+# ===== 图片存储（必须）：R2 =====
+[[r2_buckets]]
+binding = "img_r2"
+bucket_name = "img-r2"
+
+# ===== 元数据库（可选）：KV，仅在不用 D1 时启用 =====
+# 注意：D1 与 KV 二选一，同时配置会以 D1 为准。
 # [[kv_namespaces]]
 # binding = "img_url"
 # id = ""
