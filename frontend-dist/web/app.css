@@ -494,7 +494,9 @@
   padding: 34px 24px 30px;
   border: 1px solid color-mix(in srgb, var(--cta-a) 16%, var(--line));
   border-radius: 18px;
-  background: var(--dz-fill);
+  background:
+    radial-gradient(120% 80% at 50% -10%, color-mix(in srgb, var(--glow-a) 7%, transparent), transparent 62%),
+    var(--dz-fill);
   text-align: center;
   cursor: pointer;
   overflow: hidden;
@@ -502,42 +504,9 @@
   box-shadow: 0 1px 2px rgba(24, 24, 27, 0.03), 0 24px 50px -44px var(--glow-shadow);
 }
 
-/* 旋转的极光描边：conic 渐变在 2px 边线里循环流动 */
-.dropzone::before {
-  content: '';
-  position: absolute;
-  inset: -55%;
-  z-index: -2;
-  background: conic-gradient(
-    from 0turn,
-    transparent 0 0.28turn,
-    color-mix(in srgb, var(--glow-a) 45%, transparent) 0.4turn,
-    var(--glow-a) 0.5turn,
-    var(--glow-b) 0.57turn,
-    color-mix(in srgb, var(--glow-c) 45%, transparent) 0.67turn,
-    transparent 0.78turn 1turn
-  );
-  animation: dz-rotate 8s linear infinite;
-}
-
-.dropzone::after {
-  content: '';
-  position: absolute;
-  inset: 2px;
-  z-index: -1;
-  border-radius: 16px;
-  background:
-    radial-gradient(120% 80% at 50% -10%, color-mix(in srgb, var(--glow-a) 7%, transparent), transparent 62%),
-    var(--dz-fill);
-}
-
 .dropzone:hover {
   transform: translateY(-2px);
   box-shadow: 0 1px 2px rgba(24, 24, 27, 0.04), 0 34px 64px -40px var(--glow-shadow);
-}
-
-.dropzone:hover::before {
-  animation-duration: 3.6s;
 }
 
 .dropzone.is-over {
@@ -545,17 +514,9 @@
   box-shadow: 0 30px 70px -34px var(--glow-shadow), 0 0 0 1px color-mix(in srgb, var(--glow-a) 40%, transparent);
 }
 
-.dropzone.is-over::before {
-  animation-duration: 1.5s;
-}
-
 .dropzone:focus-visible {
   outline: none;
   box-shadow: var(--ring), 0 30px 70px -34px var(--glow-shadow);
-}
-
-.dropzone:focus-visible::before {
-  animation-duration: 3.6s;
 }
 
 /* 四角对焦括号，悬停/拖入时向内收拢亮起 */
@@ -765,76 +726,7 @@
   color: var(--ink-2);
 }
 
-/* -------------------------------------------------------------- Upload tips */
-
-/* 上传页底部的三条说明，填满首屏下缘的空白 */
-.upload-tips {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 18px;
-}
-
-.tip {
-  display: flex;
-  align-items: flex-start;
-  gap: 11px;
-  padding: 13px 14px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: var(--surface);
-  transition: transform var(--t), border-color var(--t), box-shadow var(--t);
-}
-
-.tip:hover {
-  transform: translateY(-2px);
-  border-color: color-mix(in srgb, var(--glow-a) 28%, var(--line));
-  box-shadow: 0 16px 32px -24px var(--glow-shadow);
-}
-
-.tip-icon {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 10px;
-  border: 1px solid color-mix(in srgb, var(--glow-a) 20%, transparent);
-  background: linear-gradient(150deg, color-mix(in srgb, var(--glow-a) 14%, transparent), transparent);
-  color: var(--accent);
-  flex: none;
-}
-
-.tip-icon svg {
-  width: 15px;
-  height: 15px;
-}
-
-.tip-text {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  gap: 1px;
-}
-
-.tip-text b {
-  font-size: var(--fs-sm);
-  font-weight: 560;
-  line-height: 1.5;
-}
-
-.tip-text span {
-  color: var(--ink-2);
-  font-size: var(--fs-xs);
-  line-height: 1.5;
-}
-
 /* ----------------------------------------------------- 上传主视觉动画定义 */
-
-@keyframes dz-rotate {
-  to {
-    transform: rotate(1turn);
-  }
-}
 
 @keyframes dz-pulse {
   0% {
@@ -888,7 +780,6 @@
 /* 尊重系统的「减少动态效果」设置 */
 @media (prefers-reduced-motion: reduce) {
   .hero-aurora i,
-  .dropzone::before,
   .dz-orb::after,
   .hero-dot {
     animation: none !important;
@@ -1479,11 +1370,6 @@
     gap: 10px;
   }
 
-  .upload-tips {
-    grid-template-columns: 1fr;
-    gap: 8px;
-    margin-top: 14px;
-  }
 
   .quota-chip {
     display: none;
