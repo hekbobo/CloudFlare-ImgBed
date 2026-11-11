@@ -346,7 +346,17 @@
         var limitText = !isNaN(limitMB) && limitMB > 0
           ? ' / ' + (limitMB >= 1024 ? (limitMB / 1024).toFixed(2) + ' GB' : limitMB.toFixed(2) + ' MB')
           : '';
-        chip.textContent = '已用 ' + sizeText + limitText + ' · ' + (data.totalCount || 0) + ' 个文件';
+        $('quota-used').textContent = sizeText;
+        $('quota-limit').textContent = limitText;
+        $('quota-count').textContent = (data.totalCount || 0) + ' 个文件';
+        var barWrap = $('quota-bar-wrap');
+        var bar = $('quota-bar');
+        if (!isNaN(limitMB) && limitMB > 0 && !isNaN(size)) {
+          barWrap.hidden = false;
+          bar.style.width = Math.max(2, Math.min(100, (size / limitMB) * 100)) + '%';
+        } else {
+          barWrap.hidden = true;
+        }
         chip.hidden = false;
       })
       .catch(function () {
@@ -517,6 +527,13 @@
     var item = findItem(id);
     if (!item) return;
 
+    var fmtBtn = e.target.closest('[data-fmt]');
+    if (fmtBtn && holder.contains(fmtBtn)) {
+      e.preventDefault();
+      applyFormat(holder, item, fmtBtn.getAttribute('data-fmt'));
+      return;
+    }
+
     var act = actEl ? actEl.getAttribute('data-act') : null;
     if (!act) return;
 
@@ -529,7 +546,8 @@
     e.stopPropagation();
 
     if (act === 'copy') {
-      copyText(absolute(item.url)).then(function () {
+      var field = holder.querySelector('.result-url');
+      copyText(field ? field.value : absolute(item.url)).then(function () {
         toast('链接已复制');
       });
     } else if (act === 'open') {
@@ -733,6 +751,68 @@
     renderResults();
   }
 
+  function formatLink(item, kind) {
+    var url = absolute(item.url);
+    var name = item.name || 'file';
+    if (kind === 'md') return '![' + name + '](' + url + ')';
+    if (kind === 'html') {
+      return item.category === 'image'
+        ? '<img src="' + url + '" alt="' + name + '">'
+        : '<a href="' + url + '">' + name + '</a>';
+    }
+    if (kind === 'bbcode') {
+      return item.category === 'image' ? '[img]' + url + '[/img]' : '[url=' + url + ']' + name + '[/url]';
+    }
+    return url;
+  }
+
+  function applyFormat(row, item, kind) {
+    Array.prototype.forEach.call(row.querySelectorAll('[data-fmt]'), function (btn) {
+      btn.classList.toggle('is-active', btn.getAttribute('data-fmt') === kind);
+    });
+    var input = row.querySelector('.result-url');
+    if (input) input.value = formatLink(item, kind);
+  }
+
+  function buildResult(item) {
+    var row = document.createElement('article');
+    row.className = 'result-row';
+    row.setAttribute('data-id', item.id);
+
+    var isImage = item.category === 'image';
+    var thumb = isImage
+      ? '<img src="' + esc(item.url) + '" alt="">'
+      : '<span class="result-ext-icon">' + ICONS[item.category] + '</span>';
+
+    row.innerHTML =
+      '<div class="result-file">' +
+      '<div class="result-thumb" data-act="' + (isImage ? 'preview' : 'open') + '">' +
+      thumb +
+      '<span class="result-ext">' + esc(extOf(item.name)) + '</span>' +
+      '</div>' +
+      '<div class="result-info">' +
+      '<div class="result-name"><b title="' + esc(item.name) + '">' + esc(item.name) + '</b>' +
+      '<span class="result-ok">' + ACT_ICONS.check + '<span>上传成功</span></span></div>' +
+      '<div class="result-sub"><span>' + esc(item.size) + '</span><em>·</em><span>' + esc(item.time) + '</span></div>' +
+      '</div></div>' +
+      '<div class="result-tools">' +
+      '<div class="fmt-switch" role="group" aria-label="链接格式">' +
+      '<button type="button" class="is-active" data-fmt="url">URL</button>' +
+      '<button type="button" data-fmt="md">MD</button>' +
+      '<button type="button" data-fmt="html">HTML</button>' +
+      '<button type="button" data-fmt="bbcode">BBCode</button>' +
+      '</div>' +
+      '<div class="result-link">' +
+      '<input class="result-url" readonly value="' + esc(formatLink(item, 'url')) + '">' +
+      '<button type="button" data-act="copy" title="复制" aria-label="复制">' + ACT_ICONS.copy + '</button>' +
+      '</div>' +
+      '<div class="result-actions">' +
+      '<button type="button" data-act="open" title="在新标签打开" aria-label="在新标签打开">' + ACT_ICONS.open + '</button>' +
+      '<button type="button" class="is-danger" data-act="del" title="删除文件" aria-label="删除文件">' + ACT_ICONS.trash + '</button>' +
+      '</div></div>';
+    return row;
+  }
+
   function renderResults() {
     var card = $('results-card');
     var grid = $('results-grid');
@@ -744,9 +824,9 @@
     }
 
     card.hidden = false;
-    $('results-count').textContent = state.results.length;
+    $('results-count').textContent = state.results.length + ' 项已完成';
     state.results.forEach(function (item) {
-      grid.appendChild(buildCard(item, { selectable: false }));
+      grid.appendChild(buildResult(item));
     });
   }
 
@@ -1034,6 +1114,11 @@
       document.addEventListener(name, function (e) {
         if (!dz.contains(e.target)) e.preventDefault();
       });
+    });
+
+    $('clear-results').addEventListener('click', function () {
+      state.results = [];
+      renderResults();
     });
 
     $('copy-all').addEventListener('click', function () {
